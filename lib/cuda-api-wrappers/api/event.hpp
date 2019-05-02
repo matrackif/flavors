@@ -1,7 +1,7 @@
 /**
  * @file event.hpp
  *
- * @brief A CUDA event wrapper class, && some free-standing
+ * @brief A CUDA event wrapper class, and some free-standing
  * functions for handling events using their IDs.
  *
  */
@@ -9,12 +9,14 @@
 #ifndef CUDA_API_WRAPPERS_EVENT_HPP_
 #define CUDA_API_WRAPPERS_EVENT_HPP_
 
-#include "types.h"
-#include "constants.h"
-#include "error.hpp"
-#include "current_device.hpp"
+#include <api/types.hpp>
+#include <api/constants.hpp>
+#include <api/error.hpp>
+#include <api/current_device.hpp>
 
 #include <cuda_runtime_api.h>
+
+#include <chrono> // for duration types
 
 namespace cuda {
 
@@ -23,46 +25,6 @@ template <bool AssumedCurrent> class device_t;
 ///@endcond
 
 namespace event {
-
-/**
- * Synchronization option for @ref cuda::event_t 's
- */
-enum : bool {
-	/**
-	 * The thread calling event_.synchronize() will enter
-	 * a busy-wait loop; this (might) minimize delay between
-	 * kernel execution conclusion && control returning to
-	 * the thread, but is very wasteful of CPU time.
-	 */
-	sync_by_busy_waiting = false,
-	/**
-	 * The thread calling event_.synchronize() will block -
-	 * yield control of the CPU && will only become ready
-	 * for execution after the kernel has completed its
-	 * execution - at which point it would have to wait its
-	 * turn among other threads. This does not waste CPU
-	 * computing time, but results in a longer delay.
-	 */
-	sync_by_blocking = true,
-};
-
-/**
- * Should the CUDA Runtime API record timing information for
- * events as it schedules them?
- */
-enum : bool {
-	dont_record_timings = false,
-	do_record_timings   = true,
-};
-
-/**
- * IPC usability option for {@ref cuda::event_t}'s
- */
-enum : bool {
-	not_interprocess = false,         //!< Can only be used by the process which created it
-	interprocess = true,              //!< Can be shared between processes. Must not be able to record timings.
-	single_process = not_interprocess
-};
 
 namespace detail {
 
@@ -106,7 +68,7 @@ namespace event {
  * @param take_ownership When set to `false`, the CUDA event
  * will not be destroyed along with proxy; use this setting
  * when temporarily working with a stream existing irrespective of
- * the current context && outlasting it. When set to `true`,
+ * the current context and outlasting it. When set to `true`,
  * the proxy class will act as it does usually, destroying the event
  * when being destructed itself.
  * @return The constructed `cuda::event_t`.
@@ -114,7 +76,7 @@ namespace event {
 inline event_t wrap(
 	device::id_t  device_id,
 	id_t          event_id,
-	bool          take_ownership = false);
+	bool          take_ownership = false) noexcept;
 
 } // namespace event
 
@@ -125,38 +87,38 @@ inline event_t wrap(
  * event-related operations the CUDA Runtime API is capable of.
  *
  * @note By default this class has RAII semantics, i.e. it has the runtime create
- * an event on construction && destroy it on destruction, && isn't merely
- * an ephemeral wrapper one could apply && discard; but this second kind of
+ * an event on construction and destroy it on destruction, and isn't merely
+ * an ephemeral wrapper one could apply and discard; but this second kind of
  * semantics is also (sort of) supported, through the @ref event_t::owning field.
  *
  * @note this is one of the three main classes in the Runtime API wrapper library,
- * together with @ref cuda::device_t && @ref cuda::stream_t
+ * together with @ref cuda::device_t and @ref cuda::stream_t
  */
 class event_t {
 public: // data member non-mutator getters
 	/**
 	 * The CUDA runtime API ID this object is wrapping
 	 */
-	event::id_t  id()                 const { return id_;                 }
+	event::id_t  id()                 const noexcept{ return id_;                 }
 	/**
 	 * The device with which this event is associated (i.e. on whose stream
 	 * this event can be enqueued)
 	 */
-	device::id_t device_id()          const { return device_id_;          }
+	device::id_t device_id()          const noexcept { return device_id_;          }
 	device_t<detail::do_not_assume_device_is_current> device() const;
 	/**
 	 * Is this wrapper responsible for having the CUDA Runtime API destroy
 	 * the event when it destructs?
 	 */
-	bool         is_owning()          const { return owning;              }
+	bool         is_owning()          const noexcept { return owning;              }
 
 public: // other non-mutator methods
 
 	/**
-	 * Has this event already occurred, || is it still pending on a stream?
+	 * Has this event already occurred, or is it still pending on a stream?
 	 *
 	 * @note an event can occur multiple times, but in the context of this
-	 * method, it only has two states: pending (on a stream) && has_occured.
+	 * method, it only has two states: pending (on a stream) and has_occured.
 	 *
 	 * @return if all work on the stream with which the event was recorded
 	 * has been completed, returns true; if there is pending work on that stream
@@ -170,7 +132,7 @@ public: // other non-mutator methods
 		if (status == cuda::status::not_ready) return false;
 		throw cuda::runtime_error(status,
 			"Could not determine whether event " + detail::ptr_as_hex(id_)
-			+ "has already occurred || not.");
+			+ "has already occurred or not.");
 	}
 
 	/**
@@ -193,7 +155,22 @@ public: // other mutator methods
 	}
 
 	/**
-	 * Have the calling thread wait - either busy-waiting || blocking - and
+	 * Records the event and ensures it has occurred before returning
+	 * (by synchronizing the stream).
+	 *
+	 * @note with the default argument, and when the default stream
+	 * is synchronous, the synchronization will do nothing, and there
+	 * will be no difference between @ref record() and this method.
+	 *
+	 * @note No protection against repeated calls.
+	 */
+	void fire(stream::id_t stream_id = stream::default_stream_id) {
+		record(stream_id);
+		stream::wrap(device_id_, stream_id).synchronize();
+	}
+
+	/**
+	 * Have the calling thread wait - either busy-waiting or blocking - and
 	 * return only after this event has occurred (see @ref has_occurred() ).
 	 */
 	void synchronize()
@@ -205,21 +182,23 @@ public: // other mutator methods
 
 protected: // constructor
 
-	event_t(device::id_t device_id, event::id_t event_id, bool take_ownership)
+	event_t(device::id_t device_id, event::id_t event_id, bool take_ownership) noexcept
 	: device_id_(device_id), id_(event_id), owning(take_ownership) { }
 
 public: // friendship
 
-	friend event_t event::wrap(device::id_t device_id, event::id_t event_id, bool take_ownership);
+	friend event_t event::wrap(device::id_t device_id, event::id_t event_id, bool take_ownership) noexcept;
 
-public: // constructors && destructor
-	event_t(device::id_t device_id, event::id_t event_id) :
+public: // constructors and destructor
+
+	// Users should generally avoid constructing non-owning events. At least let's
+	// not let them do so without giving it a bit of thought first.
+	 explicit event_t(device::id_t device_id, event::id_t event_id) noexcept:
 		event_t(device_id, event_id, false) { }
 
-	event_t(const event_t& other) :
-		device_id_(other.device_id_), id_(other.id_), owning(false){ };
+	event_t(const event_t&) = delete;
 
-	event_t(event_t&& other) :
+	event_t(event_t&& other) noexcept :
 		device_id_(other.device_id_), id_(other.id_), owning(other.owning)
 	{
 		other.owning = false;
@@ -229,6 +208,11 @@ public: // constructors && destructor
 	{
 		if (owning) { cudaEventDestroy(id_); }
 	}
+
+public: // operators
+
+	event_t& operator=(const event_t& other) = delete;
+	event_t& operator=(event_t&& other) = delete;
 
 protected: // data members
 	const device::id_t  device_id_;
@@ -240,25 +224,7 @@ protected: // data members
 
 namespace event {
 
-/**
- * Determine (inaccurately) the elapsed time between two events,
- * by their id's.
- *
- * @note  Q: Why the weird output type?
- *        A: This is what the CUDA Runtime API itself returns
- *
- * @param start first timepoint event id
- * @param end second, later, timepoint event id
- * @return the difference in the (inaccurately) measured time, in msec
- */
-inline float milliseconds_elapsed_between(id_t start, id_t end)
-{
-	float elapsed_milliseconds;
-	auto status = cudaEventElapsedTime(&elapsed_milliseconds, start, end);
-	cuda::throw_if_error(status, "determining the time elapsed between events");
-	return elapsed_milliseconds;
-}
-
+using duration_t = std::chrono::duration<float, std::milli>;
 
 /**
  * Determine (inaccurately) the elapsed time between two events
@@ -270,9 +236,12 @@ inline float milliseconds_elapsed_between(id_t start, id_t end)
  * @param end second, later, timepoint event
  * @return the difference in the (inaccurately) measured time, in msec
  */
-inline float milliseconds_elapsed_between(const event_t& start, const event_t& end)
+inline duration_t time_elapsed_between(const event_t& start, const event_t& end)
 {
-	return milliseconds_elapsed_between(start.id(), end.id());
+	float elapsed_milliseconds;
+	auto status = cudaEventElapsedTime(&elapsed_milliseconds, start.id(), end.id());
+	cuda::throw_if_error(status, "determining the time elapsed between events");
+	return duration_t { elapsed_milliseconds };
 }
 
 /**
@@ -286,14 +255,14 @@ inline float milliseconds_elapsed_between(const event_t& start, const event_t& e
  * @param event_id of the event for which to obtain a proxy
  * @param take_ownership when true, the wrapper will have the CUDA Runtime API destroy
  * the event when it destructs (making an "owning" event wrapper; otherwise, it is
- * assume that some other code "owns" the event && will destroy it when necessary
+ * assume that some other code "owns" the event and will destroy it when necessary
  * (and not while the wrapper is being used!)
  * @return an event wrapper associated with the specified event
  */
 inline event_t wrap(
 	device::id_t  device_id,
 	id_t          event_id,
-	bool          take_ownership)
+	bool          take_ownership) noexcept
 {
 	return event_t(device_id, event_id, take_ownership);
 }
@@ -306,9 +275,12 @@ inline event_t create_on_current_device(
 	bool          interprocess       = not_interprocess)
 {
 	auto flags = make_flags(uses_blocking_sync, records_timing, interprocess);
-	id_t new_event_id;
+	cuda::event::id_t new_event_id;
 	auto status = cudaEventCreateWithFlags(&new_event_id, flags);
 	cuda::throw_if_error(status, "failed creating a CUDA event associated with the current device");
+	// Note: We're trusting CUDA to actually have succeeded if it reports success,
+	// so we're not checking the newly-created event id - which is really just
+	// a pointer - for nullness
 	bool take_ownership = true;
 	return wrap(device::current::get_id(), new_event_id, take_ownership);
 }
@@ -343,4 +315,4 @@ inline event_t create(
 } // namespace cuda
 
 
-#endif /* CUDA_API_WRAPPERS_EVENT_HPP_ */
+#endif // CUDA_API_WRAPPERS_EVENT_HPP_

@@ -1,5 +1,5 @@
-#include "catch.hpp"
-#include "keys.h"
+#include <catch/catch.hpp>
+#include <keys.h>
 
 #include <vector>
 

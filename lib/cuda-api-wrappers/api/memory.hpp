@@ -8,9 +8,10 @@
 #ifndef CUDA_API_WRAPPERS_MEMORY_HPP_
 #define CUDA_API_WRAPPERS_MEMORY_HPP_
 
-#include "error.hpp"
-#include "constants.h"
-#include "current_device.hpp"
+#include <api/error.hpp>
+#include <api/constants.hpp>
+#include <api/current_device.hpp>
+#include <api/pointer.hpp>
 
 #include <cuda_runtime.h> // needed, rather than cuda_runtime_api.h, e.g. for cudaMalloc
 
@@ -18,15 +19,38 @@
 #include <cstring> // for std::memset
 
 namespace cuda {
+
+///@cond
+template <bool AssumedCurrent> class device_t;
+///@endcond
+
+/**
+ * @namespace memory
+ * Representation, allocation and manipulation of CUDA-related memory, with
+ * its various namespaces and kinds of memory regions.
+ */
 namespace memory {
 
+/**
+ * @namespace mapped
+ * Memory regions appearing in both on the host-side and device-side address 
+ * spaces with the regions in both spaces mapped to each other (i.e. guaranteed 
+ * to have the same contents on access up to synchronization details). See @url 
+ * http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#mapped-memory
+ * for more details.
+ */
 namespace mapped {
 
-// This namespace regards memory appearing both on the device
-// && on the host, with the regions mapped to each other.
+// TODO: Perhaps make this an array of size 2 and use aspects to index it?
+// Or maybe inherit a pair?
 
-// TODO: Perhaps make this an array of size 2 && use aspects to index it?
-// || maybe inherit a pair?
+/**
+ * @brief A pair of memory regions, one in system (=host) memory and one on a
+ * CUDA device's memory - mapped to each other
+ *
+ * @note this is the mapped-pair equivalent of a `void *`; it is not a
+ * proper memory region abstraction, i.e. it has no size information
+ */
 struct region_pair {
 
 	enum : bool {
@@ -55,7 +79,9 @@ struct region_pair {
 
 namespace detail {
 
-inline unsigned make_cuda_host_alloc_flags(region_pair::allocation_options options) {
+inline unsigned make_cuda_host_alloc_flags(
+	region_pair::allocation_options options) noexcept
+{
 	return cudaHostAllocMapped &
 		(options.portable_across_cuda_contexts ? cudaHostAllocPortable : 0) &
 		(options.cpu_write_combining ? cudaHostAllocWriteCombined: 0);
@@ -64,11 +90,16 @@ inline unsigned make_cuda_host_alloc_flags(region_pair::allocation_options optio
 } // namespace detail
 
 } // namespace mapped
+
 } // namespace memory
 
 
 namespace memory {
 
+/**
+ * @namespace device
+ * CUDA-Device-global memory on a single device (not accessible from the host)
+ */
 namespace device {
 
 namespace detail {
@@ -117,11 +148,14 @@ inline void free(void* ptr)
  * @param size_in_bytes the amount of memory to allocate
  * @return a pointer to the allocated stretch of memory (on the CUDA device)
  */
-inline __host__ void* allocate(cuda::device::id_t device_id, size_t size_in_bytes)
+inline void* allocate(cuda::device::id_t device_id, size_t size_in_bytes)
 {
 	cuda::device::current::scoped_override_t<> set_device_for_this_scope(device_id);
 	return memory::device::detail::allocate(size_in_bytes);
 }
+
+template <bool AssumedCurrent>
+inline void* allocate(cuda::device_t<AssumedCurrent>& device, size_t size_in_bytes);
 
 namespace detail {
 struct allocator {
@@ -156,22 +190,22 @@ inline void set(void* buffer_start, int byte_value, size_t num_bytes)
  */
 inline void zero(void* buffer_start, size_t num_bytes)
 {
-	return set(buffer_start, 0, num_bytes);
+	set(buffer_start, 0, num_bytes);
 }
 
 } // namespace device
 
 /**
- * Synchronously copies data between memory spaces || within a memory space.
+ * Synchronously copies data between memory spaces or within a memory space.
  *
  * @note Since we assume Compute Capability >= 2.0, all devices support the
  * Unified Virtual Address Space, so the CUDA driver can determine, for each pointer,
- * where the data is located, && one does not have to specify this.
+ * where the data is located, and one does not have to specify this.
  *
  * @param destination A pointer to a memory region of size @p num_bytes, either in
- * host memory || on any CUDA device's global memory
+ * host memory or on any CUDA device's global memory
  * @param source A pointer to a a memory region of size @p num_bytes, either in
- * host memory || on any CUDA device's global memory
+ * host memory or on any CUDA device's global memory
  * @param num_bytes The number of bytes to copy from @p source to @p destination
  */
 inline void copy(void *destination, const void *source, size_t num_bytes)
@@ -186,11 +220,11 @@ inline void copy(void *destination, const void *source, size_t num_bytes)
 }
 
 /**
- * Synchronously copies a single (typed) value between memory spaces || within a memory space.
+ * Synchronously copies a single (typed) value between memory spaces or within a memory space.
  *
- * @param destination a value residing either in host memory || on any CUDA
+ * @param destination a value residing either in host memory or on any CUDA
  * device's global memory
- * @param source a value residing either in host memory || on any CUDA
+ * @param source a value residing either in host memory or on any CUDA
  * device's global memory
  */
 template <typename T>
@@ -202,18 +236,18 @@ inline void copy_single(T& destination, const T& source)
 namespace async {
 
 /**
- * Asynchronously copies data between memory spaces || within a memory space.
+ * Asynchronously copies data between memory spaces or within a memory space.
  *
  * @note Since we assume Compute Capability >= 2.0, all devices support the
  * Unified Virtual Address Space, so the CUDA driver can determine, for each pointer,
- * where the data is located, && one does not have to specify this.
+ * where the data is located, and one does not have to specify this.
  *
  * @note asynchronous version of @ref memory::copy
  *
  * @param destination A pointer to a memory region of size @p num_bytes, either in
- * host memory || on any CUDA device's global memory
+ * host memory or on any CUDA device's global memory
  * @param source A pointer to a a memory region of size @p num_bytes, either in
- * host memory || on any CUDA device's global memory
+ * host memory or on any CUDA device's global memory
  * @param num_bytes The number of bytes to copy from @p source to @p destination
  */
 inline void copy(void *destination, const void *source, size_t num_bytes, stream::id_t stream_id)
@@ -228,13 +262,13 @@ inline void copy(void *destination, const void *source, size_t num_bytes, stream
 }
 
 /**
- * Synchronously copies a single (typed) value between memory spaces || within a memory space.
+ * Synchronously copies a single (typed) value between memory spaces or within a memory space.
  *
  * @note asynchronous version of @ref memory::copy_single
  *
- * @param destination a value residing either in host memory || on any CUDA
+ * @param destination a value residing either in host memory or on any CUDA
  * device's global memory
- * @param source a value residing either in host memory || on any CUDA
+ * @param source a value residing either in host memory or on any CUDA
  * device's global memory
  */
 template <typename T>
@@ -251,6 +285,7 @@ namespace async {
 
 inline void set(void* buffer_start, int byte_value, size_t num_bytes, stream::id_t stream_id)
 {
+	// TODO: Double-check that this call doesn't require setting the current device
 	auto result = cudaMemsetAsync(buffer_start, byte_value, num_bytes, stream_id);
 	throw_if_error(result, "memsetting an on-device buffer");
 }
@@ -264,16 +299,21 @@ inline void zero(void* buffer_start, size_t num_bytes, stream::id_t stream_id)
 
 } // namespace device
 
+/**
+ * @namespace host
+ * Host-side (= system) memory which is "pinned", i.e. resides in
+ * a fixed physical location - and allocated by the CUDA driver.
+ */
 namespace host {
 
 /**
  * Allocate pinned host memory
  *
  * @note "Pinned" memory is excepted from virtual memory swapping-out,
- * && is allocated in contiguous physical RAM addresses, making it
- * possible to copy to && from it to the the GPU using DMA without
+ * and is allocated in contiguous physical RAM addresses, making it
+ * possible to copy to and from it to the the GPU using DMA without
  * assistance from the GPU. Typically for PCIe 3.0, the effective
- * bandwidth is twice as fast as copying from || to naively-allocated
+ * bandwidth is twice as fast as copying from or to naively-allocated
  * host memory.
  *
  * @throws cuda::runtime_error if allocation fails for any reason
@@ -318,7 +358,7 @@ struct deleter {
 /**
  * @brief Makes a preallocated memory region behave as though it were allocated with @ref host::allocate.
  *
- * Page-locks the memory range specified by ptr && size && maps it for the device(s) as specified by
+ * Page-locks the memory range specified by ptr and size and maps it for the device(s) as specified by
  * flags. This memory range also is added to the same tracking mechanism as cudaHostAlloc() to
  * automatically accelerate calls to functions such as cudaMemcpy().
  *
@@ -359,9 +399,9 @@ inline void register_(void *ptr, size_t size,
 {
 	detail::register_(
 		ptr, size,
-		  register_mapped_io_space ? cudaHostRegisterIoMemory : 0
-		| map_into_device_space ? cudaHostRegisterMapped : 0
-		| make_device_side_accesible_to_all ? cudaHostRegisterPortable : 0
+		  (register_mapped_io_space ? cudaHostRegisterIoMemory : 0)
+		| (map_into_device_space ? cudaHostRegisterMapped : 0)
+		| (make_device_side_accesible_to_all ? cudaHostRegisterPortable : 0)
 	);
 }
 
@@ -388,13 +428,29 @@ inline void set(void* buffer_start, int byte_value, size_t num_bytes)
 
 inline void zero(void* buffer_start, size_t num_bytes)
 {
-	return set(buffer_start, 0, num_bytes);
-	// TODO: Error handling?
+	set(buffer_start, 0, num_bytes);
 }
 
 
 } // namespace host
 
+/**
+ * @namespace managed
+ * This type of memory, also known as _unified_ memory, appears within
+ * a unified, all-system address space - and is used with the same
+ * address range on the host and on all relevant CUDA devices on a
+ * system. It is paged, so that it may exceed the physical size of
+ * a CUDA device's global memory. The CUDA driver takes care of
+ * "swapping" pages "out" from a device to host memory or "swapping"
+ * them back "in", as well as of propagation of changes between
+ * devices and host-memory.
+ *
+ * @note For more details, see
+ * <a href="https://devblogs.nvidia.com/parallelforall/unified-memory-cuda-beginners/">
+ * Unified Memory for CUDA Beginners</a> on the
+ * <a href="https://devblogs.nvidia.com/parallelforall">Parallel4All blog</a>.
+ *
+ */
 namespace managed {
 
 enum class initial_visibility_t {
@@ -448,26 +504,14 @@ struct deleter {
 
 /**
  * @brief Allocate a a region of managed memory, accessible with the same
- * address on the host && on CUDA devices
- *
- * CUDA "managed memory" means being able to use the same address on the host
- * && on CUDA devices to refer to different memory regions, one in host
- * memory && others in global device memory. CUDA "manages" these regions,
- * i.e. migrates data between CUDA devices && host memory when its been written
- * somewhere && needs to be read elsewhere.
- * See @url https://devblogs.nvidia.com/parallelforall/unified-memory-in-cuda-6/
- *
- * @note "managed memory" is similar to "mapped memory" in the propagation
- * of changes from the host to the device && back as necessary, but differs
- * from it in that "mapped memory" involves just a single device; && that
- * with "mapped memory" the host-side && device-side addresses are different
+ * address on the host and on CUDA devices
  *
  * @param device_id the initial device which is likely to access the managed
  * memory region (and which will certainly have actually allocated for it)
  * @param num_bytes size of each of the regions of memory to allocate
  * @param initial_visibility will the allocated region be visible, using the
  * common address, to all CUDA device (= more overhead, more work for the CUDA
- * runtime) || just to those devices with some hardware features to assist in
+ * runtime) or just to those devices with some hardware features to assist in
  * this task (= less overhead)?
  */
 
@@ -480,8 +524,16 @@ inline void* allocate(
 	return detail::allocate(num_bytes, initial_visibility);
 }
 
+template <bool AssumedCurrent>
+inline void* allocate(
+	cuda::device_t<AssumedCurrent>&  device,
+	size_t                                num_bytes,
+	initial_visibility_t                  initial_visibility =
+		initial_visibility_t::to_all_devices
+);
+
 /**
- * Free a managed memory region (host-side && device-side regions on all devices
+ * Free a managed memory region (host-side and device-side regions on all devices
  * where it was allocated, all with the same address) which was allocated with
  * @ref allocate.
  */
@@ -489,9 +541,30 @@ inline void free(void* managed_ptr)
 {
 	auto result = cudaFree(managed_ptr);
 	cuda::throw_if_error(result,
-		"Freeing managed memory (host && device regions) at address 0x"
+		"Freeing managed memory (host and device regions) at address 0x"
 		+ cuda::detail::ptr_as_hex(managed_ptr));
 }
+
+namespace async {
+
+/**
+ * @brief Prefetches a region of managed memory to a specific device, so
+ * it can later be used there without waiting for I/O fromm the host or other
+ * devices.
+ */
+inline void prefetch(
+	void*               managed_ptr,
+	size_t              num_bytes,
+	cuda::device::id_t  destination,
+	stream::id_t        stream_id)
+{
+	auto result = cudaMemPrefetchAsync(managed_ptr, num_bytes, destination, stream_id);
+	throw_if_error(result,
+		"Prefetching " + std::to_string(num_bytes) + " bytes of managed memory at address "
+		 + cuda::detail::ptr_as_hex(managed_ptr) + " to device " + std::to_string(destination));
+}
+
+} // namespace async
 
 } // namespace managed
 
@@ -500,7 +573,13 @@ namespace mapped {
 namespace detail {
 
 /**
- * Allocates on the current device.
+ * Allocates a mapped pair of memory regions - on the current device
+ * and in host memory.
+ *
+ * @param size_in_bytes size of each of the two regions, in bytes.
+ * @param options indication of how the CUDA driver will manage
+ * the region pair
+ * @return the allocated pair (with both regions being non-null)
  */
 inline region_pair allocate(
 	size_t                           size_in_bytes,
@@ -531,20 +610,16 @@ inline region_pair allocate(
 } // namespace detail
 
 /**
- * Allocate a pair of mapped memory regions, one in host memory && one
- * in the global memory of a CUDA device, which the CUDA runtime will keep
- * syncrhonized
- *
- * @note "managed memory" is similar to "mapped memory" in the propagation
- * of changes from the host to the device && back as necessary, but differs
- * from it in that "mapped memory" involves just a single device; && that
- * with "mapped memory" the host-side && device-side addresses are different
+ * Allocates a mapped pair of memory regions - on a CUDA device
+ * and in host memory.
  *
  * @param device_id The device on which to allocate the device-side region
- * @param size_in_bytes size of each of the memory region
- * @param options see @ref region_pair::allocation_options
- * @return a structure for the pair of allocated regions
+ * @param size_in_bytes size of each of the two regions, in bytes.
+ * @param options indication of how the CUDA driver will manage
+ * the region pair
+ * @return the allocated pair (with both regions being non-null)
  */
+
 inline region_pair allocate(
 	cuda::device::id_t               device_id,
 	size_t                           size_in_bytes,
@@ -557,8 +632,20 @@ inline region_pair allocate(
 	return detail::allocate(size_in_bytes, options);
 }
 
+template <bool AssumedCurrent>
+inline region_pair allocate(
+	cuda::device_t<AssumedCurrent>&  device,
+	size_t                           size_in_bytes,
+	region_pair::allocation_options  options = {
+		region_pair::isnt_portable_across_cuda_contexts,
+		region_pair::without_cpu_write_combining }
+	);
+
 /**
- * Free a pair of mapped memory regions allocated with @ref allocate.
+ * Free a pair of mapped memory regions
+ *
+ * @param pair a pair of regions allocated with @ref allocate (or with
+ * the C-style CUDA runtime API directly)
  */
 inline void free(region_pair pair)
 {
@@ -567,47 +654,31 @@ inline void free(region_pair pair)
 }
 
 /**
- * Free a pair of mapped memory regions allocated with @ref allocate
+ * Free a pair of mapped memory regions using just one of them
  *
  * @param ptr a pointer to one of the mapped regions (can be either
- * the device-side || the host-side)
+ * the device-side or the host-side)
  */
 inline void free_region_pair_of(void* ptr)
 {
-	cudaPointerAttributes attributes;
-	auto result = cudaPointerGetAttributes(&attributes, ptr);
-	cuda::throw_if_error(result,
-		"Could not obtain the properties for the pointer"
-		", being necessary for freeing the region pair it's (supposedly) "
-		"associated with.");
-	cudaFreeHost(attributes.hostPointer);
+	auto wrapped_ptr = pointer_t<void> { ptr };
+	auto result = cudaFreeHost(wrapped_ptr.get_for_host());
+	cuda::throw_if_error(result, "Could not free mapped memory region pair.");
 }
 
 /**
- * Determines whether a given stretch of memory was allocated as part of
- * a mapped pair of host && device memory regions
+ * Determine whether a given stretch of memory was allocated as part of
+ * a mapped pair of host and device memory regions
  *
- * @note mostly for debugging purposes
- *
- * @param ptr the region to check
- * @return true iff the region was allocated as one side of a mapped memory region pair
+ * @param ptr the beginning of a memory region - in either host or device
+ * memory - to check
+ * @return `true` iff the region was allocated as one side of a mapped
+ * memory region pair
  */
 inline bool is_part_of_a_region_pair(void* ptr)
 {
-	cudaPointerAttributes attributes;
-	auto result = cudaPointerGetAttributes(&attributes, ptr);
-	cuda::throw_if_error(result, "Could not obtain device pointer attributes");
-#ifdef DEBUG
-	auto self_copy = (attributes.memoryType == cudaMemoryTypeHost) ?
-		attributes.hostPointer : attributes.devicePointer ;
-	if (self_copy != ptr) {
-		throw runtime_error(cudaErrorUnknown, "Inconsistent data obtained from the CUDA runtime API");
-	}
-#endif
-	auto corresponding_buffer_ptr =
-		(attributes.memoryType == cudaMemoryTypeHost) ?
-		attributes.devicePointer : attributes.hostPointer;
-	return (corresponding_buffer_ptr != nullptr);
+	auto wrapped_ptr = pointer_t<void> { ptr };
+	return wrapped_ptr.other_side_of_region_pair().get() != nullptr;
 }
 
 } // namespace mapped
@@ -616,4 +687,4 @@ inline bool is_part_of_a_region_pair(void* ptr)
 
 } // namespace cuda
 
-#endif /* CUDA_API_WRAPPERS_MEMORY_HPP_ */
+#endif // CUDA_API_WRAPPERS_MEMORY_HPP_

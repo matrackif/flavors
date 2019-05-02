@@ -2,11 +2,11 @@
 
 #include <vector>
 
-#include "keys.h"
-#include "masks.h"
-#include "tree.h"
+#include <keys.h>
+#include <masks.h>
+#include <tree.h>
 
-#include "catch.hpp"
+#include <catch/catch.hpp>
 
 using namespace Flavors;
 

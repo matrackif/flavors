@@ -1,4 +1,4 @@
-#include "tree.h"
+#include <tree.h>
 
 #include <thrust/fill.h>
 #include <thrust/execution_policy.h>

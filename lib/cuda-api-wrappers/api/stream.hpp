@@ -2,27 +2,28 @@
  * @file stream.hpp
  *
  * @brief A proxy class for CUDA streams, providing access to
- * all Runtime API calls involving their use && management.
+ * all Runtime API calls involving their use and management.
  */
 #pragma once
 #ifndef CUDA_API_WRAPPERS_STREAM_HPP_
 #define CUDA_API_WRAPPERS_STREAM_HPP_
 
-#include "types.h"
-#include "error.hpp"
-#include "memory.hpp"
-#include "kernel_launch.cuh"
-#include "current_device.hpp"
-#include "device_count.hpp"
+#include <api/types.hpp>
+#include <api/error.hpp>
+#include <api/memory.hpp>
+#include <api/kernel_launch.cuh>
+#include <api/current_device.hpp>
+#include <api/device_count.hpp>
 
 #include <cuda_runtime_api.h>
 
 #include <string>
-#include <functional>
+#include <memory>
 
 namespace cuda {
 
 template <bool AssumedCurrent> class device_t;
+class event_t;
 
 template <bool AssumesDeviceIsCurrent = false> class stream_t;
 
@@ -60,7 +61,7 @@ inline id_t create_on_current_device(
  *
  * @note the stream_t class includes information regarding a stream's
  * device association, so this function only makes sense for CUDA stream
- * identifiers
+ * identifiers.
  *
  * @param stream_id the CUDA runtime API identifier for the stream whose
  * association is to be checked
@@ -90,7 +91,7 @@ inline bool is_associated_with(stream::id_t stream_id, device::id_t device_id)
  *
  * Strangely enough, CUDA won't tell you which device a stream is associated with,
  * while it can - supposedly - tell this itself when querying stream status. So,
- * let's use that. This is ugly && possibly buggy, but it _might_ just work.
+ * let's use that. This is ugly and possibly buggy, but it _might_ just work.
  *
  * @param stream_id a stream identifier
  * @return the identifier of the device for which the stream was created.
@@ -117,7 +118,7 @@ inline device::id_t associated_device(stream::id_t stream_id)
 inline stream_t<> wrap(
 	device::id_t  device_id,
 	id_t          stream_id,
-	bool          take_ownership = false);
+	bool          take_ownership = false) noexcept;
 
 } // namespace stream
 
@@ -131,14 +132,12 @@ inline stream_t<> wrap(
  * device ID before acting
  *
  * @note this is one of the three main classes in the Runtime API wrapper library,
- * together with @ref cuda::device_t && @ref cuda::event_t
+ * together with @ref cuda::device_t and @ref cuda::event_t
  */
 template <bool AssumesDeviceIsCurrent /* = false , see template declaration */>
 class stream_t {
 
 public: // type definitions
-	using callback_t = std::function<void(stream::id_t, status_t)>;
-
 	using priority_t = stream::priority_t;
 
 	enum : bool {
@@ -151,17 +150,17 @@ protected: // type definitions
 
 
 public: // const getters
-	stream::id_t id() const { return id_; }
-	device::id_t device_id() const { return device_id_; }
+	stream::id_t id() const noexcept { return id_; }
+	device::id_t device_id() const noexcept { return device_id_; }
 	device_t<detail::do_not_assume_device_is_current> device() const;
-	bool is_owning() const { return owning; }
+	bool is_owning() const noexcept { return owning; }
 
 public: // other non-mutators
 
 	/**
 	 * When true, work running in the created stream may run concurrently with
-	 * work in stream 0 (the NULL stream), && there is no implicit
-	 * synchronization performed between it && stream 0.
+	 * work in stream 0 (the NULL stream), and there is no implicit
+	 * synchronization performed between it and stream 0.
 	 */
 	bool synchronizes_with_default_stream() const
 	{
@@ -235,12 +234,19 @@ protected: // static methods
 	 * @param status the CUDA status when the callback is triggered - this
 	 * will be passed by the CUDA runtime
 	 * @param type_erased_callback the callback which was passed to @ref enqueue_t::callback,
-	 * && which the programmer actually wants to be called
+	 * and which the programmer actually wants to be called
 	 */
-	static void callback_adapter(stream::id_t stream_id, status_t status, void *type_erased_callback)
+	template <typename Invokable>
+	static void callback_adapter(
+		stream::id_t  stream_id,
+		status_t      status,
+		void *        invokable_on_heap)
 	{
-		auto retyped_callback = reinterpret_cast<callback_t*>(type_erased_callback);
+		auto retyped_callback = std::unique_ptr<Invokable>{ 
+			reinterpret_cast<Invokable*>(invokable_on_heap)
+		 };
 		(*retyped_callback)(stream_id, status);
+		// Note: invokable_on_heap will be delete'd
 	}
 
 public: // mutators
@@ -256,6 +262,7 @@ public: // mutators
 
 		template<typename KernelFunction, typename... KernelParameters>
 		void kernel_launch(
+			bool                        thread_block_cooperativity,
 			const KernelFunction&       kernel_function,
 			launch_configuration_t      launch_configuration,
 			KernelParameters...         parameters)
@@ -264,19 +271,39 @@ public: // mutators
 			// with devices other than the current one, see:
 			// http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#stream-and-event-behavior
 			DeviceSetter set_device_for_this_scope(device_id_);
-			return cuda::enqueue_launch(kernel_function, stream_id_, launch_configuration, parameters...);
+			return cuda::enqueue_launch(
+				thread_block_cooperativity, kernel_function, stream_id_, launch_configuration, parameters...);
+		}
+
+		template<typename KernelFunction, typename... KernelParameters>
+		void kernel_launch(
+			const KernelFunction&       kernel_function,
+			launch_configuration_t      launch_configuration,
+			KernelParameters...         parameters)
+		{
+			// TODO: Somehow I can't avoid code duplication with the previous variant of kernel_launch;
+			// why is that?
+			//
+			// return kernel_launch(cuda::thread_blocks_cant_cooperate,
+			// 	kernel_function, stream_id_, launch_configuration, parameters...);
+			//
+
+			DeviceSetter set_device_for_this_scope(device_id_);
+			return cuda::enqueue_launch(
+				cuda::thread_blocks_may_not_cooperate,
+				kernel_function, stream_id_, launch_configuration, parameters...);
 		}
 
 		/**
 		 * Have the CUDA device perform an I/O operation between two specified
-		 * memory regions (on || off the actual device)
+		 * memory regions (on or off the actual device)
 		 *
 		 * @param destination destination region into which to copy. May be
 		 * anywhere in which memory can be mapped to the device's memory space (e.g.
-		 * the device's global memory, host memory || the global memory of another device)
+		 * the device's global memory, host memory or the global memory of another device)
 		 * @param source destination region from which to copy. May be
 		 * anywhere in which memory can be mapped to the device's memory space (e.g.
-		 * the device's global memory, host memory || the global memory of another device)
+		 * the device's global memory, host memory or the global memory of another device)
 		 * @param num_bytes size of the region to copy
 		 **/
 		void copy(void *destination, const void *source, size_t num_bytes)
@@ -288,7 +315,7 @@ public: // mutators
 
 		/**
 		 * Set all bytes of a certain region in device memory (or unified memory,
-	 	 * but using the CUDA device to do it) to a single fixed value.
+		 * but using the CUDA device to do it) to a single fixed value.
 		 *
 		 * @param destination Beginning of the region to fill
 		 * @param byte_value the value with which to fill the memory region bytes
@@ -302,33 +329,59 @@ public: // mutators
 		}
 
 		/**
+		 * Set all bytes of a certain region in device memory (or unified memory,
+		 * but using the CUDA device to do it) to zero.
+		 *
+		 * @note this is a separate method, since the CUDA runtime has a separate
+		 * API call for setting to zero; does that mean there are special facilities
+		 * for zero'ing memory faster? Who knows.
+		 *
+		 * @param destination Beginning of the region to fill
+		 * @param num_bytes size of the region to fill
+		 */
+		void memzero(void *destination, size_t num_bytes)
+		{
+			// Is it necessary to set the device? I wonder.
+			DeviceSetter set_device_for_this_scope(device_id_);
+			memory::device::async::zero(destination, num_bytes, stream_id_);
+		}
+
+		/**
 		 * Have an event 'fire', i.e. marked as having occurred,
 		 * after all hereto-scheduled work on this stream has been completed.
 		 * Threads which are @ref stream_t::wait_on() 'ing the event will become available
 		 * for continued execution.
 		 *
-		 * @param event_id CUDA runtime API ID of the event to have occuring on
-		 * completion of the hereto-scheduled work on this stream
+		 * @param event A pre-created CUDA event (for the stream's device); any existing
+		 * "registration" of the event to occur elsewhere is overwritten.
 		 **/
-		void event(cuda::event::id_t event_id) {
-			// TODO: ensure the stream && the event are associated with the same device
+		event_t& event(event_t& existing_event);
 
-			// Not calling event::detail::enqueue to avoid dependency on event.hpp
-			auto status = cudaEventRecord(event_id, stream_id_);
-			throw_if_error(status,
-				"Failed scheduling scheduling event " + cuda::detail::ptr_as_hex(event_id) + " to occur"
-				+ " on stream " + cuda::detail::ptr_as_hex(stream_id_)
-				+ " on CUDA device " + std::to_string(device_id_));
-		}
+		/**
+		 * Have an event 'fire', i.e. marked as having occurred,
+		 * after all hereto-scheduled work on this stream has been completed.
+		 * Threads which are @ref stream_t::wait_on() 'ing the event will become available
+		 * for continued execution.
+		 *
+		 * @note the parameters are the same as for @ref event::create()
+		 *
+		 **/
+		event_t event(
+			bool          uses_blocking_sync = event::sync_by_busy_waiting,
+			bool          records_timing     = event::do_record_timings,
+			bool          interprocess       = event::not_interprocess);
 
 		/**
 		 * Execute the specified function on the calling host thread once all
 		 * hereto-scheduled work on this stream has been completed.
 		 *
-		 * @param callback a function to execute on the host. Its signature
-		 * must being with `(cuda::stream::id_t stream_id, cuda::event::id_t event_id`
+		 * @todo avoid the overhead of constructing an std::function
+		 *
+		 * @param callback a function to execute on the host. It must be invokable
+		 * with two parameters: `cuda::stream::id_t stream_id, cuda::event::id_t event_id`
 		 */
-		void callback(callback_t callback)
+		template <typename Invokable>
+		void callback(Invokable callback_)
 		{
 			DeviceSetter set_device_for_this_scope(device_id_);
 
@@ -337,23 +390,27 @@ public: // mutators
 			//
 			enum : unsigned int { fixed_flags = 0 };
 
+			// Since callback_ will be going out of scope after the enqueueing,
+			// and we don't know anything about the scope of the original argument with
+			// which we were called, we must make a copy of `callback_` on the heap
+			// and pass that as the user-defined data
+			Invokable * invokable_on_the_heap = new Invokable(std::move(callback_));
+
 			// This always registers the static function callback_adapter as the callback -
-			// but what that one will do is call the actual callback we were passed; note
-			// that since you can can have a lambda capture data && wrap that in the
-			// std::function, there's not much need (it would seem) for an extra inner
-			// user_data parameter to callback_t
-			auto status = cudaStreamAddCallback(stream_id_, &callback_adapter, &callback, fixed_flags);
+			// but what that one will do is call the actual callback we were passed;
+			auto status = cudaStreamAddCallback(
+				stream_id_, &callback_adapter<Invokable>, invokable_on_the_heap, fixed_flags);
 			throw_if_error(status,
-				std::string("Failed scheduling a callback function to be launched")
+				std::string("Failed scheduling a callback to be launched")
 				+ " on stream " + cuda::detail::ptr_as_hex(stream_id_)
 				+ " on CUDA device " + std::to_string(device_id_));
 		}
 
 		/**
 		 * Attaches a region of managed memory (i.e. in an address space visible
-		 * on all CUDA devices && the host) to this specific stream on its specific device.
-		 * This is actually a commitment vis-a-vis the CUDA driver && the GPU itself that
-		 * it doesn't need to worry about accesses to this memory from elsewhere, && can
+		 * on all CUDA devices and the host) to this specific stream on its specific device.
+		 * This is actually a commitment vis-a-vis the CUDA driver and the GPU itself that
+		 * it doesn't need to worry about accesses to this memory from elsewhere, and can
 		 * optimize accordingly. Also, the host will be allowed to read from this memory
 		 * region whenever no kernels are pending on this stream
 		 *
@@ -393,22 +450,12 @@ public: // mutators
 		 * would typically be recorded on another stream.
 		 *
 		 */
-		void wait(event::id_t event_id)
-		{
-			// Required by the CUDA runtime API; the flags value is
-			// currently unused
-			constexpr const unsigned int  flags = 0;
-			auto status = cudaStreamWaitEvent(stream_id_, event_id, flags);
-			throw_if_error(status,
-				std::string("Failed scheduling a wait on event ") + cuda::detail::ptr_as_hex(event_id)
-				+ " on stream " + cuda::detail::ptr_as_hex(stream_id_)
-				+ " on CUDA device " + std::to_string(device_id_));
-		}
+		void wait(const event_t& event_);
 
 	}; // class enqueue_t
 
 	/**
-	 * Block || busy-wait until all previously-scheduled work
+	 * Block or busy-wait until all previously-scheduled work
 	 * on this stream has been completed
 	 */
 	void synchronize()
@@ -421,17 +468,19 @@ public: // mutators
 			+ " on CUDA device " + std::to_string(device_id_));
 	}
 
-public: // constructors && destructor
+public: // constructors and destructor
 
-	stream_t(const stream_t& other) :
-		device_id_(other.device_id_), id_(other.id_), owning(false) { };
+	stream_t(const stream_t& other) = delete;
 
-	stream_t(stream_t&& other) :
-		device_id_(other.device_id_), id_(other.id_), owning(other.owning) { other.owning = false; };
+	stream_t(stream_t&& other) noexcept :
+		device_id_(other.device_id_), id_(other.id_), owning(other.owning)
+	{
+		other.owning = false;
+	};
 
-	// TODO: Perhaps drop this in favor of just the protected constructor,
-	// && let all wrapping construction be done by the stream::wrap() function?
-	stream_t(device::id_t device_id, stream::id_t stream_id)
+	// Users should generally avoid constructing non-owning streams. At least let's
+	// not let them do so without giving it a bit of thought first.
+	explicit stream_t(device::id_t device_id, stream::id_t stream_id) noexcept
 	: stream_t(device_id, stream_id, false) { }
 
 	~stream_t()
@@ -446,20 +495,20 @@ public: // constructors && destructor
 public: // operators
 
 	// TODO: Do we really want to allow assignments? Hmm... probably not, it's
-	// too risky
+	// too risky - someone might destroy one of the streams and use the others
 	stream_t& operator=(const stream_t<AssumesDeviceIsCurrent>& other) = delete;
-	stream_t& operator=(const stream_t<!AssumesDeviceIsCurrent>& other) = delete;
+	stream_t& operator=(const stream_t<not AssumesDeviceIsCurrent>& other) = delete;
 	stream_t& operator=(stream_t<AssumesDeviceIsCurrent>& other) = delete;
-	stream_t& operator=(stream_t<!AssumesDeviceIsCurrent>& other) = delete;
+	stream_t& operator=(stream_t<not AssumesDeviceIsCurrent>& other) = delete;
 
 protected: // constructor
 
-	stream_t(device::id_t device_id, stream::id_t stream_id, bool take_ownership)
+	stream_t(device::id_t device_id, stream::id_t stream_id, bool take_ownership) noexcept
 	: device_id_(device_id), id_(stream_id), owning(take_ownership) { }
 
 public: // friendship
 
-	friend stream_t<> stream::wrap(device::id_t device_id, id_t stream_id, bool take_ownership);
+	friend stream_t<> stream::wrap(device::id_t device_id, stream::id_t stream_id, bool take_ownership) noexcept;
 
 protected: // data members
 	const device::id_t  device_id_;
@@ -471,14 +520,14 @@ public: // data members - which only exist in lieu of namespaces
 
 };
 
-inline bool operator==(const stream_t<>& lhs, const stream_t<>& rhs)
+inline bool operator==(const stream_t<>& lhs, const stream_t<>& rhs) noexcept
 {
-	return lhs.device_id() == rhs.device_id() && lhs.id() == rhs.id();
+	return lhs.device_id() == rhs.device_id() and lhs.id() == rhs.id();
 }
 
-inline bool operator!=(const stream_t<>& lhs, const stream_t<>& rhs)
+inline bool operator!=(const stream_t<>& lhs, const stream_t<>& rhs) noexcept
 {
-	return !(lhs == rhs);
+	return not (lhs == rhs);
 }
 
 namespace stream {
@@ -499,7 +548,7 @@ enum : bool {
  * @param take_ownership When set to `false`, the stream
  * will not be destroyed along with the wrapper; use this setting
  * when temporarily working with a stream existing irrespective of
- * the current context && outlasting it. When set to `true`,
+ * the current context and outlasting it. When set to `true`,
  * the proxy class will act as it does usually, destroying the stream
  * when being destructed itself.
  * @return an instance of the stream proxy class, with the specified
@@ -508,7 +557,7 @@ enum : bool {
 inline stream_t<> wrap(
 	device::id_t  device_id,
 	id_t          stream_id,
-	bool          take_ownership /* = false, see declaration */)
+	bool          take_ownership /* = false, see declaration */) noexcept
 {
 	return stream_t<>(device_id, stream_id, take_ownership);
 }
@@ -535,4 +584,4 @@ using queue_id_t = stream::id_t;
 } // namespace cuda
 
 
-#endif /* CUDA_API_WRAPPERS_STREAM_HPP_ */
+#endif // CUDA_API_WRAPPERS_STREAM_HPP_

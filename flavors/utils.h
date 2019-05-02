@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <iostream>
-#include "api_wrappers.h"
+#include <cuda-api-wrappers/api_wrappers.hpp>
 
 namespace Flavors
 {

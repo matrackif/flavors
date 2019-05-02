@@ -1,4 +1,4 @@
-#include "ip.h"
+#include <ip.h>
 #include <sstream>
 
 using namespace Flavors;
@@ -112,7 +112,7 @@ namespace FlavorsBenchmarks
                 tree.Match(reshapedIpSet, result.Get());
                 measured.Add("Match", timer.Stop());
 
-				int randomCount = 1000000;
+				int randomCount = 100000;
                 Keys randomIpSet(config, randomCount);
                 randomIpSet.FillRandom(0);
 				measured.Add("RandomCount", randomCount);

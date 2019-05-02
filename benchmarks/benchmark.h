@@ -1,14 +1,14 @@
 #pragma once
 
-#include "utils.h"
-#include "configuration.h"
-#include "tree.h"
+#include <utils.h>
+#include <configuration.h>
+#include <tree.h>
 
 #include <map>
 #include <fstream>
 #include <type_traits>
 
-#include "../../lib/json/json.hpp"
+#include <json/json.hpp>
 
 namespace Flavors
 {

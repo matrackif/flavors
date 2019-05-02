@@ -13,25 +13,25 @@
 #ifndef CUDA_API_WRAPPERS_DEVICE_COUNT_HPP_
 #define CUDA_API_WRAPPERS_DEVICE_COUNT_HPP_
 
-#include "types.h"
-#include "cuda_runtime_api.h"
+#include <api/types.hpp>
+#include <cuda_runtime_api.h>
 
 namespace cuda {
 namespace device {
 
 /**
  * Get the number of CUDA devices usable on the system (with the current CUDA
- * library && kernel driver)
+ * library and kernel driver)
  *
  * @note This _should_ be returning an unsigned value; unfortunately, device::id_t  is
- * signed in CUDA for some reason && we maintain compatibility (although this might
+ * signed in CUDA for some reason and we maintain compatibility (although this might
  * change in the future). So... the returned type is the same as in cudaGetDeviceCount,
  * a signed integer.
  *
  * @return the number of CUDA devices on this system
  * @throws cuda::error if the device count could not be obtained
  */
-inline __host__ device::id_t  count()
+inline device::id_t  count()
 {
 	int device_count = 0; // Initializing, just to be on the safe side
 	status_t result = cudaGetDeviceCount(&device_count);
@@ -49,4 +49,4 @@ inline __host__ device::id_t  count()
 } // namespace cuda
 
 
-#endif /* CUDA_API_WRAPPERS_DEVICE_COUNT_HPP_ */
+#endif // CUDA_API_WRAPPERS_DEVICE_COUNT_HPP_

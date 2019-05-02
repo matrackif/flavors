@@ -3,7 +3,7 @@
 #include <ostream>
 #include <vector>
 
-#include "utils.h"
+#include <utils.h>
 
 namespace Flavors
 {

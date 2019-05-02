@@ -1,5 +1,5 @@
-#include "catch.hpp"
-#include "configuration.h"
+#include <catch/catch.hpp>
+#include <configuration.h>
 
 #include <vector>
 #include <string>

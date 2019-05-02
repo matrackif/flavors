@@ -1,6 +1,6 @@
-#include "catch.hpp"
-#include "tree.h"
-#include "helpers.h"
+#include <catch/catch.hpp>
+#include <tree.h>
+#include <helpers.h>
 
 #include <vector>
 

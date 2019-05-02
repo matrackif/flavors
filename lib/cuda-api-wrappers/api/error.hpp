@@ -9,7 +9,7 @@
 #ifndef CUDA_API_WRAPPERS_ERROR_HPP_
 #define CUDA_API_WRAPPERS_ERROR_HPP_
 
-#include "types.h"
+#include <api/types.hpp>
 
 #include <cuda_runtime_api.h>
 #include <type_traits>
@@ -25,7 +25,7 @@ namespace status {
  *
  * @note unfortunately, this enum can't inherit from @ref status_t
  */
-enum alias_t : std::underlying_type<status_t>::type {
+enum named_t : std::underlying_type<status_t>::type {
 	success                         = cudaSuccess,
 	missing_configuration           = cudaErrorMissingConfiguration,
 	memory_allocation               = cudaErrorMemoryAllocation,
@@ -109,49 +109,51 @@ enum alias_t : std::underlying_type<status_t>::type {
 	api_failure_base                = cudaErrorApiFailureBase
 };
 
-inline bool operator==(const status_t& lhs, const alias_t& rhs) { return lhs == (status_t) rhs;}
-inline bool operator!=(const status_t& lhs, const alias_t& rhs) { return lhs != (status_t) rhs;}
-inline bool operator==(const alias_t& lhs, const status_t& rhs) { return (status_t) lhs == rhs;}
-inline bool operator!=(const alias_t& lhs, const status_t& rhs) { return (status_t) lhs != rhs;}
-
+constexpr inline bool operator==(const status_t& lhs, const named_t& rhs) { return lhs == (status_t) rhs;}
+constexpr inline bool operator!=(const status_t& lhs, const named_t& rhs) { return lhs != (status_t) rhs;}
+constexpr inline bool operator==(const named_t& lhs, const status_t& rhs) { return (status_t) lhs == rhs;}
+constexpr inline bool operator!=(const named_t& lhs, const status_t& rhs) { return (status_t) lhs != rhs;}
 
 } // namespace status
 
-inline bool is_success(status_t status)  { return status == (status_t) status::success; }
-inline bool is_failure(status_t status)  { return status != (status_t) status::success; }
+constexpr inline bool is_success(status_t status)  { return status == (status_t) status::success; }
+constexpr inline bool is_failure(status_t status)  { return status != (status_t) status::success; }
 
 /**
  * Obtain a brief textual explanation for a specified kind of CUDA Runtime API status
- * || error code.
+ * or error code.
  */
 inline std::string describe(status_t status) { return cudaGetErrorString(status); }
 
 namespace detail {
 
 template <typename I, bool UpperCase = false>
-std::string as_hex(I x, unsigned hex_string_length = 2*sizeof(I) )
+std::string as_hex(I x)
 {
 	static_assert(std::is_unsigned<I>::value, "only signed representations are supported");
+	unsigned num_hex_digits = 2*sizeof(I);
+	if (x == 0) return "0x0";
+
 	enum { bits_per_hex_digit = 4 }; // = log_2 of 16
 	static const char* digit_characters =
 		UpperCase ? "0123456789ABCDEF" : "0123456789abcdef" ;
 
-	std::string result(hex_string_length,'0');
-	for (unsigned digit_index = 0; digit_index < hex_string_length ; digit_index++)
+	std::string result(num_hex_digits,'0');
+	for (unsigned digit_index = 0; digit_index < num_hex_digits ; digit_index++)
 	{
-		size_t bit_offset = (hex_string_length - 1 - digit_index) * bits_per_hex_digit;
+		size_t bit_offset = (num_hex_digits - 1 - digit_index) * bits_per_hex_digit;
 		auto hexadecimal_digit = (x >> bit_offset) & 0xF;
 		result[digit_index] = digit_characters[hexadecimal_digit];
 	}
-	return result;
+	return "0x0" + result.substr(result.find_first_not_of('0'), std::string::npos);
 }
 
 // TODO: Perhaps find a way to avoid the extra function, so that as_hex() can
 // be called for pointer types as well? Would be easier with boost's uint<T>...
 template <typename I, bool UpperCase = false>
-inline std::string ptr_as_hex(const I* ptr, unsigned hex_string_length = 2*sizeof(I*) )
+inline std::string ptr_as_hex(const I* ptr)
 {
-	return as_hex((size_t) ptr, hex_string_length);
+	return as_hex((size_t) ptr);
 }
 
 } // namespace detail
@@ -161,12 +163,12 @@ inline std::string ptr_as_hex(const I* ptr, unsigned hex_string_length = 2*sizeo
  * essentially all CUDA Runtime API wrappers upon failure.
  *
  * A CUDA runtime error can be constructed with either just a CUDA error code
- * (=status code), || a code plus an additional message.
+ * (=status code), or a code plus an additional message.
  */
 class runtime_error : public std::runtime_error {
 public:
 	///@cond
-	// TODO: Constructor chaining; && perhaps allow for more construction mechanisms?
+	// TODO: Constructor chaining; and perhaps allow for more construction mechanisms?
 	runtime_error(cuda::status_t error_code) :
 		std::runtime_error(describe(error_code)),
 		code_(error_code)
@@ -177,6 +179,10 @@ public:
 		code_(error_code)
 	{ }
 	///@endcond
+	runtime_error(cuda::status::named_t error_code) :
+		runtime_error(static_cast<cuda::status_t>(error_code)) { }
+	runtime_error(cuda::status::named_t error_code, const std::string& what_arg) :
+		runtime_error(static_cast<cuda::status_t>(error_code), what_arg) { }
 
 	/**
 	 * Obtain the CUDA status code which resulted in this error being thrown.
@@ -224,8 +230,8 @@ namespace outstanding_error {
 /**
  * Reset the CUDA status to cuda::status::success.
  */
-inline status_t clear() { return cudaGetLastError();    }
-inline status_t get()   { return cudaPeekAtLastError(); }
+inline status_t clear() noexcept { return cudaGetLastError();    }
+inline status_t get()   noexcept { return cudaPeekAtLastError(); }
 
 /**
  * @brief Does nothing (unless throwing an exception)
@@ -246,6 +252,20 @@ inline void ensure_none(
 {
 	auto last_status = clear_any_error ? clear() : get();
 	throw_if_error(last_status, message);
+}
+
+/**
+ * @brief A variant of @ref ensure_none(std::string, bool) which takes
+ * a C-style string.
+ *
+ * @note exists so as to avoid incorrect overload resolution of
+ * `ensure_none(my_c_string)` calls.
+ */
+inline void ensure_none(
+	const char*  message,
+	bool         clear_any_error = do_clear_errors) noexcept(false)
+{
+	return ensure_none(std::string(message), clear_any_error);
 }
 
 /**
@@ -271,4 +291,4 @@ inline void ensure_none(bool clear_any_error = do_clear_errors) noexcept(false)
 
 } // namespace cuda
 
-#endif /* CUDA_API_WRAPPERS_ERROR_HPP_ */
+#endif // CUDA_API_WRAPPERS_ERROR_HPP_

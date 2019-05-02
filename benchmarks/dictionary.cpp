@@ -1,4 +1,4 @@
-#include "dictionary.h"
+#include <dictionary.h>
 
 #include <fstream>
 #include <algorithm>

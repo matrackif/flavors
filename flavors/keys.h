@@ -1,7 +1,7 @@
 #pragma once
-#include "utils.h"
-#include "configuration.h"
-#include "dataInfo.h"
+#include <utils.h>
+#include <configuration.h>
+#include <dataInfo.h>
 
 #include <ostream>
 

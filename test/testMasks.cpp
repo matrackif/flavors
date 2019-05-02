@@ -1,7 +1,7 @@
-#include "catch.hpp"
-#include "masks.h"
+#include <catch/catch.hpp>
+#include <masks.h>
 
-#include "helpers.h"
+#include <helpers.h>
 
 #include <vector>
 

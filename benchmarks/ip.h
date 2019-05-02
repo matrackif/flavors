@@ -1,7 +1,7 @@
 #pragma once
 
-#include "benchmark.h"
-#include "words.h"
+#include <benchmark.h>
+#include <words.h>
 
 namespace FlavorsBenchmarks
 {

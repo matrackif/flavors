@@ -3,8 +3,8 @@
 #include <string>
 #include <vector>
 
-#include "benchmark.h"
-#include "tree.h"
+#include <benchmark.h>
+#include <tree.h>
 
 namespace FlavorsBenchmarks
 {

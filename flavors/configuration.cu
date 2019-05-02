@@ -1,4 +1,4 @@
-#include "configuration.h"
+#include <configuration.h>
 
 #include <algorithm>
 #include <thrust/execution_policy.h>

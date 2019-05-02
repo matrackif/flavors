@@ -1,4 +1,4 @@
-#include "../../lib/json/json.hpp"
+#include <json/json.hpp>
 
 #include <fstream>
 #include <iostream>
@@ -6,12 +6,12 @@
 #include <string>
 #include <algorithm>
 
-#include "configuration.h"
-#include "randomBenchmark.h"
-#include "dictionary.h"
-#include "hostBenchmark.h"
-#include "words.h"
-#include "ip.h"
+#include <configuration.h>
+#include <randomBenchmark.h>
+#include <dictionary.h>
+#include <hostBenchmark.h>
+#include <words.h>
+#include <ip.h>
 
 int main(int argc, char** argv)
 {

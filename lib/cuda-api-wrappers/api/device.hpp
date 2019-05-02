@@ -2,19 +2,19 @@
  * @file device.hpp
  *
  * @brief A proxy class for CUDA devices, providing access to
- * all Runtime API calls involving their use && management; and
+ * all Runtime API calls involving their use and management; and
  * some device-related standalone functions.
  */
 #pragma once
 #ifndef CUDA_API_WRAPPERS_DEVICE_HPP_
 #define CUDA_API_WRAPPERS_DEVICE_HPP_
 
-#include "types.h"
-#include "device_properties.hpp"
-#include "memory.hpp"
-#include "current_device.hpp"
-#include "pci_id.h"
-#include "unique_ptr.hpp"
+#include <api/types.hpp>
+#include <api/device_properties.hpp>
+#include <api/memory.hpp>
+#include <api/current_device.hpp>
+#include <api/pci_id.hpp>
+#include <api/unique_ptr.hpp>
 
 #include <cuda_runtime_api.h>
 #include <string>
@@ -33,7 +33,7 @@ namespace device {
  * Returns a proxy for the CUDA device with a given id
  *
  * @param id the ID for which to obtain the device proxy
- * @note direct constructor access is blocked so that you don't Get the
+ * @note direct constructor access is blocked so that you don't get the
  * idea you're actually creating devices
  */
 device_t<detail::do_not_assume_device_is_current> get(id_t id);
@@ -59,12 +59,12 @@ using attribute_value_t = int;
 /**
  * @brief An identifier of a integral-numeric-value attribute of a CUDA device.
  *
- * @note Somewhat annoyingly, CUDA devices have attributes, properties && flags.
+ * @note Somewhat annoyingly, CUDA devices have attributes, properties and flags.
  * Attributes have integral number values; properties have all sorts of values,
- * including arrays && limited-length strings (see
- * @ref cuda::device::properties_t), && flags are either binary or
+ * including arrays and limited-length strings (see
+ * @ref cuda::device::properties_t), and flags are either binary or
  * small-finite-domain type fitting into an overall flagss value (see
- * @ref cuda::device_t::flags_t). Flags && properties are obtained all at once,
+ * @ref cuda::device_t::flags_t). Flags and properties are obtained all at once,
  * attributes are more one-at-a-time.
  */
 using attribute_t = cudaDeviceP2PAttr;
@@ -77,67 +77,6 @@ enum : std::underlying_type<attribute_t>::type {
 		access_support = cudaDevP2PAttrAccessSupported, /**< 1 if access is supported, 0 otherwise */                                                                    //!< access_support
 		native_atomics_support = cudaDevP2PAttrNativeAtomicSupported /**< 1 if the first device can perform native atomic operations on the second device, 0 otherwise *///!< native_atomics_support
 };
-
-/**
- * @brief Determine whether one CUDA device can access the global memory
- * of another CUDA device.
- *
- * @param accessor id of the device interested in making a remote access
- * @param peer id of the device which is to be accessed
- * @return true iff acesss is possible
- */
-inline bool can_access(id_t accessor, id_t peer)
-{
-	int result;
-	auto status = cudaDeviceCanAccessPeer(&result, accessor, peer);
-	throw_if_error(status,
-		"Failed determining whether CUDA device " + std::to_string(accessor) + " can access CUDA device "
-			+ std::to_string(peer));
-	return (result == 1);
-}
-
-/**
- * @brief Determine whether one CUDA device can access the global memory
- * of another CUDA device.
- *
- * @param accessor device interested in making a remote access
- * @param peer device to be accessed
- * @return true iff acess is possible
- */
-template<bool FirstIsAssumedCurrent, bool SecondIsAssumedCurrent>
-inline bool can_access(const device_t<FirstIsAssumedCurrent>& accessor, const device_t<SecondIsAssumedCurrent>& peer);
-
-/**
- * @brief Enable access by one CUDA device to the global memory of another
- *
- * @param accessor device interested in making a remote access
- * @param peer device to be accessed
- */
-inline void enable_access(id_t accessor_id, id_t peer_id)
-{
-	enum
-		: unsigned {fixed_flags = 0
-	};
-	// No flags are supported as of CUDA 8.0
-	device::current::scoped_override_t<> set_device_for_this_scope(accessor_id);
-	auto status = cudaDeviceEnablePeerAccess(peer_id, fixed_flags);
-	throw_if_error(status,
-		"Failed enabling access of device " + std::to_string(accessor_id) + " to device " + std::to_string(peer_id));
-}
-
-/**
- * @brief Disable access by one CUDA device to the global memory of another
- *
- * @param accessor device interested in making a remote access
- * @param peer device to be accessed
- */
-inline void disable_access(id_t accessor_id, id_t peer_id)
-{
-	device::current::scoped_override_t<> set_device_for_this_scope(accessor_id);
-	auto status = cudaDeviceDisablePeerAccess(peer_id);
-	throw_if_error(status,
-		"Failed disabling access of device " + std::to_string(accessor_id) + " to device " + std::to_string(peer_id));
-}
 
 /**
  * @brief Get one of the numeric attributes for a(n ordered) pair of devices,
@@ -171,14 +110,14 @@ inline attribute_value_t get_attribute(attribute_t attribute, const device_t<Fir
 /**
  * @brief Proxy class for a CUDA device
  *
- * Use this class - built around a device ID, || for the current device - to
+ * Use this class - built around a device ID, or for the current device - to
  * perform almost, if not all, device-related operations, as opposed to passing
  * the device ID around all that time.
  *
  * @tparam AssumedCurrent - when true, the code performs no setting of the
  *
  * @note this is one of the three main classes in the Runtime API wrapper library,
- * together with @ref cuda::stream_t && @ref cuda::event_t
+ * together with @ref cuda::stream_t and @ref cuda::event_t
  */
 template<bool AssumedCurrent = detail::do_not_assume_device_is_current>
 class device_t {
@@ -198,7 +137,7 @@ protected:
 	using priority_range_t = std::pair<stream::priority_t, stream::priority_t>;
 
 	// This relies on valid CUDA device IDs being non-negative, which is indeed
-	// always the case for CUDA <= 8.0 && unlikely to change; however, it's
+	// always the case for CUDA <= 8.0 and unlikely to change; however, it's
 	// a bit underhanded to make that assumption just to twist this class to do
 	// our bidding (see below)
 	enum : device::id_t { invalid_id = -1 };
@@ -225,7 +164,7 @@ protected:
 		// when not making that assumption, we need a const field, initialized on construction;
 		// this hack allows both the options to coexist without the compiler complaining
 		// about assigning to a const lvalue (we use it since std::conditional can't
-		// be used to select between making a field mutable || not).
+		// be used to select between making a field mutable or not).
 
 public:	// types
 
@@ -234,22 +173,19 @@ public:	// types
 	 * namespace (which C++ does not support); whenever you see a function
 	 * `my_dev.memory::foo()`, think of it as a `my_dev::memory::foo()`.
 	 */
-	class memory_t {
+	class global_memory_t {
 	protected:
-		const id_holder_type& device_id;
+		const id_holder_type& device_id_;
 
 		using deleter = memory::device::detail::deleter;
 		using allocator = memory::device::detail::allocator;
 
-		std::string device_id_as_str() const
-		{
-			return device_t::device_id_as_str(device_id);
-		}
-
 	public:
 		///@cond
-		memory_t(const typename device_t::id_holder_type& id) : device_id(id) { }
+		global_memory_t(const device_t::id_holder_type& id) : device_id_(id) { }
 		///@endcond
+
+		cuda::device::id_t device_id() const { return device_id_; }
 
 		/**
 		 * Allocate a region of memory on the device
@@ -257,9 +193,9 @@ public:	// types
 		 * @param size_in_bytes size in bytes of the region of memory to allocate
 		 * @return a non-null (device-side) pointer to the allocated memory
 		 */
-		__host__ void* allocate(size_t size_in_bytes)
+		void* allocate(size_t size_in_bytes)
 		{
-			scoped_setter_t set_device_for_this_scope(device_id);
+			scoped_setter_t set_device_for_this_scope(device_id_);
 			return memory::device::detail::allocate(size_in_bytes);
 		}
 
@@ -268,12 +204,12 @@ public:	// types
 
 		/**
 		 * Allocates memory on the device whose pointer is also visible on the host,
-		 * && possibly on other devices as well - with the same address. This is
+		 * and possibly on other devices as well - with the same address. This is
 		 * nVIDIA's "managed memory" mechanism.
 		 *
 		 * @note Managed memory isn't as "strongly associated" with a single device
-		 * as the result of allocate(), since it can be read || written from any
-		 * device || from the host. However, the actual space is allocated on
+		 * as the result of allocate(), since it can be read or written from any
+		 * device or from the host. However, the actual space is allocated on
 		 * some device, so its creation is a device (device_t) object method.
 		 *
 		 * @note for a more complete description see the
@@ -286,37 +222,13 @@ public:	// types
 		 * it will be made usable on all CUDA devices on the system
 		 * @return the allocated pointer; never returns null (throws on failure)
 		 */
-		__host__ void* allocate_managed(
+		void* allocate_managed(
 			size_t size_in_bytes,
 			initial_visibility_t initial_visibility =
 				initial_visibility_t::to_supporters_of_concurrent_managed_access)
 		{
-			scoped_setter_t set_device_for_this_scope(device_id);
+			scoped_setter_t set_device_for_this_scope(device_id_);
 			return cuda::memory::managed::detail::allocate(size_in_bytes, initial_visibility);
-		}
-
-		using region_pair = ::cuda::memory::mapped::region_pair;
-
-		/**
-		 * @brief Allocate a pair of mapped regions, in device-global memory and
-		 * in host memory.
-		 *
-		 * @note see @ref memory::mapped::region_pair for an explanation of how
-		 * region pairs work.
-		 *
-		 * @param size_in_bytes of the region to allocate
-		 * @param options to be passed to the CUDA memory allocation API
-		 * @return a non-null pair of allocated regions
-		 */
-		__host__ region_pair allocate_region_pair(
-			size_t                           size_in_bytes,
-			region_pair::allocation_options  options = {
-				region_pair::isnt_portable_across_cuda_contexts,
-				region_pair::without_cpu_write_combining
-			})
-		{
-			scoped_setter_t set_device_for_this_scope(device_id);
-			return memory::mapped::detail::allocate(size_in_bytes, options);
 		}
 
 		/**
@@ -324,119 +236,77 @@ public:	// types
 		 */
 		size_t amount_total() const
 		{
-			scoped_setter_t set_device_for_this_scope(device_id);
+			scoped_setter_t set_device_for_this_scope(device_id_);
 			size_t total_mem_in_bytes;
 			auto status = cudaMemGetInfo(nullptr, &total_mem_in_bytes);
 			throw_if_error(status,
 				std::string("Failed determining amount of total memory "
-					"for CUDA device ") + device_id_as_str());
+					"for CUDA device ") + device_id_as_str(device_id_));
 			return total_mem_in_bytes;
 		}
 
 		/**
-		 * Amount of memory on the CUDA device which is free && may be
+		 * Amount of memory on the CUDA device which is free and may be
 		 * allocated for other uses.
 		 *
 		 * @note No guarantee of this free memory being contigous.
 		 */
 		size_t amount_free() const
 		{
-			scoped_setter_t set_device_for_this_scope(device_id);
+			scoped_setter_t set_device_for_this_scope(device_id_);
 			size_t free_mem_in_bytes;
 			auto status = cudaMemGetInfo(&free_mem_in_bytes, nullptr);
 			throw_if_error(status, "Failed determining amount of "
-				"free memory for " + device_id_as_str());
+				"free memory for CUDA device " + device_id_as_str(device_id_));
 			return free_mem_in_bytes;
 		}
-	}; // class memory_t
+	}; // class global_memory_t
 
 	/**
-	 * @brief A class to create a faux member in a @ref device_t, in lieu of an in-class
-	 * namespace (which C++ does not support); whenever you see a function
-	 * `my_dev.peer_access::foo()`, think of it as a `my_dev::peer_access::foo()`.
+	 * @brief Determine whether this device can access the global memory
+	 * of another CUDA device.
+	 *
+	 * @param peer id of the device which is to be accessed
+	 * @return true iff acesss is possible
 	 */
-	class peer_access_t {
-	protected:
-		const typename device_t::id_holder_type& device_id;
+	bool can_access(const device_t<>& peer) const
+	{
+		int result;
+		auto status = cudaDeviceCanAccessPeer(&result, id(), peer.id());
+		throw_if_error(status,
+			"Failed determining whether CUDA device " + std::to_string(id()) + " can access CUDA device "
+				+ std::to_string(peer.id()));
+		return (result == 1);
+	}
 
-		std::string device_id_as_str() const
-		{
-			return device_t::device_id_as_str(device_id);
-		}
+	/**
+	 * @brief Enable access by this device to the global memory of another device
+	 *
+	 * @param peer device to have access access to
+	 * @param peer_id id of the device to which to enable access
+	 */
+	void enable_access_to(const device_t<>& peer)
+	{
+		enum : unsigned {fixed_flags = 0 };
+		// No flags are supported as of CUDA 8.0
+		scoped_setter_t set_device_for_this_scope(id());
+		auto status = cudaDeviceEnablePeerAccess(peer.id(), fixed_flags);
+		throw_if_error(status,
+			"Failed enabling access of device " + std::to_string(id()) + " to device " + std::to_string(peer.id()));
+	}
 
-	public:
-		///@cond
-		peer_access_t(const typename device_t::id_holder_type& holder) : device_id(holder) { }
-		///@endcond
-
-		/**
-		 * @brief Determine whether this device can access the global memory
-		 * of another CUDA device.
-		 *
-		 * @param peer id of the device which is to be accessed
-		 * @return true iff acesss is possible
-		 */
-		bool can_access(device::id_t peer_id) const
-		{
-			scoped_setter_t set_device_for_this_scope(device_id);
-			return device::peer_to_peer::can_access(device_id, peer_id);
-		}
-
-		// This won't compile, for some reason:
-		//
-		// inline bool can_access(const device_t<detail::do_not_assume_device_is_current>& peer) const
-		// {
-		// 	return this->can_access(peer.id());
-		// }
-
-		/**
-		 * @brief Enable access by this device to the global memory of another device
-		 * with a specified id
-		 *
-		 * @param peer_id id of the device to which to enable access
-		 */
-		void enable_to(device::id_t peer_id)
-		{
-			if (AssumedCurrent) {
-				enum : unsigned {fixed_flags = 0 };
-				// No flags are supported as of CUDA 8.0
-				auto status = cudaDeviceEnablePeerAccess(peer_id, fixed_flags);
-				throw_if_error(status, "Failed enabling access of current device to device " + std::to_string(peer_id));
-			} else
-				device::peer_to_peer::enable_access(device_id, peer_id);
-		}
-
-		/**
-		 * @brief Enable access by this device to the global memory of another device
-		 *
-		 * @param peer device to have access access to
-		 */
-		void enable_to(device_t<> peer) { enable_to(peer.id()); }
-
-		/**
-		 * @brief Disable access by this device to the global memory of another device
-		 * with a specified id
-		 *
-		 * @param peer_id id of the device to which to disable access
-		 */
-		void disable_to(device::id_t peer_id)
-		{
-			if (AssumedCurrent) {
-				auto status = cudaDeviceDisablePeerAccess(peer_id);
-				throw_if_error(status,
-					"Failed disabling access of current device to device " + std::to_string(peer_id));
-			} else
-			device::peer_to_peer::disable_access(device_id, peer_id);
-		}
-
-		/**
-		 * @brief Disable access by this device to the global memory of another device
-		 *
-		 * @param peer device to have access disabled to
-		 */
-		void disable_to(device_t<> peer) { disable_to(peer.id()); }
-
-	}; // class peer_access_t
+	/**
+	 * @brief Disable access by this device to the global memory of another device
+	 *
+	 * @param peer device to have access disabled to
+	 */
+	void disable_access_to(const device_t<>& peer)
+	{
+		scoped_setter_t set_device_for_this_scope(id());
+		auto status = cudaDeviceDisablePeerAccess(peer.id());
+		throw_if_error(status,
+			"Failed disabling access of device " + std::to_string(id()) + " to device " + std::to_string(peer.id()));
+	}
 
 protected:
 	void set_flags(flags_t new_flags)
@@ -478,6 +348,11 @@ protected:
 
 public:
 	/**
+	 * @brief Obtains a proxy for the device's global memory
+	 */
+	global_memory_t memory() { return global_memory_t(id_); };
+
+	/**
 	 * Obtains the (mostly) non-numeric properties for this device.
 	 */
 	properties_t properties() const
@@ -493,15 +368,15 @@ public:
 	 */
 	std::string name() const
 	{
-		// I could Get the name directly, but that would require
-		// direct use of the driver, && I'm not ready for that
+		// I could get the name directly, but that would require
+		// direct use of the driver, and I'm not ready for that
 		// just yet
 		return properties().name;
 	}
 
 	/**
 	 * Obtains this device's location on the PCI express bus in terms of
-	 * domain, bus && device id, e.g. (0, 1, 0)
+	 * domain, bus and device id, e.g. (0, 1, 0)
 	 */
 	device::pci_location_t pci_id() const
 	{
@@ -535,7 +410,7 @@ public:
 	 * Obtain a numeric-value attribute of the device
 	 *
 	 * @note See @ref device::attribute_t for explanation about attributes,
-	 * properties && flags.
+	 * properties and flags.
 	 */
 	attribute_value_t get_attribute(attribute_t attribute) const
 	{
@@ -583,7 +458,7 @@ public:
 	 * on this device to conclude
 	 *
 	 * Depending on the host_thread_synch_scheduling_policy_t set for this
-	 * device, the thread calling this method will either yield, spin || block
+	 * device, the thread calling this method will either yield, spin or block
 	 * until all tasks scheduled previously scheduled on this device have been
 	 * concluded.
 	 */
@@ -599,7 +474,7 @@ public:
 	 * (queue) of this device to conclude.
 	 *
 	 * Depending on the host_thread_synch_scheduling_policy_t set for this
-	 * device, the thread calling this method will either yield, spin || block
+	 * device, the thread calling this method will either yield, spin or block
 	 * until all tasks scheduled on the stream with @p stream_id have
 	 * been completed.
 	 *
@@ -642,10 +517,10 @@ public:
 	void synchronize(event_t& event);
 
 	/**
-	 * Invalidates all memory allocations && resets all state regarding this
+	 * Invalidates all memory allocations and resets all state regarding this
 	 * CUDA device on the current operating system process.
      *
-     * @todo Determine whether this actually performs a hardware reset || not
+     * @todo Determine whether this actually performs a hardware reset or not
 	 */
 	void reset()
 	{
@@ -655,10 +530,10 @@ public:
 	}
 
 	/**
-	 * Controls the balance between L1 space && shared memory space for
+	 * Controls the balance between L1 space and shared memory space for
 	 * kernels executing on this device.
 	 *
-	 * @param preference the preferred balance between L1 && shared memory
+	 * @param preference the preferred balance between L1 and shared memory
 	 */
 	void set_cache_preference(multiprocessor_cache_preference_t preference)
 	{
@@ -669,7 +544,7 @@ public:
 	}
 
 	/**
-	 * Determines the balance between L1 space && shared memory space set
+	 * Determines the balance between L1 space and shared memory space set
 	 * for kernels executing on this device.
 	 */
 	multiprocessor_cache_preference_t cache_preference() const
@@ -722,7 +597,7 @@ public:
 	device::id_t id() const
 	{
 		if (AssumedCurrent) {
-			// This is the first time in which we need to Get the device ID
+			// This is the first time in which we need to get the device ID
 			// for the current device - as we've constructed this instance of
 			// device_t<assume_device_is_current> without the ID
 			if (id_.id == invalid_id) {
@@ -732,24 +607,45 @@ public:
 		return id_.id;
 	}
 
-	stream_t<AssumedCurrent> default_stream() const;
+	stream_t<AssumedCurrent> default_stream() const noexcept;
 
 	// I'm a worried about the creation of streams with the assumption
 	// that theirs is the current device, so I'm just forbidding it
 	// outright here - even though it's very natural to want to write
 	//
-	//   cuda::device::curent::Get().create_stream()
+	//   cuda::device::curent::get().create_stream()
 	//
 	// (sigh)... safety over convenience I guess
 	//
-	stream_t<detail::do_not_assume_device_is_current> create_stream(bool will_synchronize_with_default_stream,
-		stream::priority_t priority = cuda::stream::default_priority);
+	stream_t<detail::do_not_assume_device_is_current> create_stream(
+		bool                will_synchronize_with_default_stream,
+		stream::priority_t  priority = cuda::stream::default_priority);
+
+	/**
+	 * See @ref event::create()
+	 */
+	event_t create_event(
+		bool uses_blocking_sync = event::sync_by_busy_waiting, // Yes, that's the runtime default
+		bool records_timing     = event::do_record_timings,
+		bool interprocess       = event::not_interprocess);
 
 	template<typename KernelFunction, typename ... KernelParameters>
-	void launch(const KernelFunction& kernel_function, launch_configuration_t launch_configuration,
+	void launch(
+		bool thread_block_cooperativity,
+		const KernelFunction& kernel_function, launch_configuration_t launch_configuration,
 		KernelParameters ... parameters)
 	{
-		return default_stream().enqueue.kernel_launch(kernel_function, launch_configuration, parameters...);
+		return default_stream().enqueue.kernel_launch(
+			thread_block_cooperativity, kernel_function, launch_configuration, parameters...);
+	}
+
+	template<typename KernelFunction, typename ... KernelParameters>
+	void launch(
+		const KernelFunction& kernel_function, launch_configuration_t launch_configuration,
+		KernelParameters ... parameters)
+	{
+		return launch(
+			cuda::thread_blocks_may_not_cooperate, kernel_function, launch_configuration, parameters...);
 	}
 
 	priority_range_t stream_priority_range() const
@@ -827,9 +723,9 @@ public:
 
 public:
 
-	 // I'm of two minds regarding whether || not we should have this method at all;
+	 // I'm of two minds regarding whether or not we should have this method at all;
 	 // I'm worried people might assume the proxy object will start behaving like
-	 // what they Get with cuda::device::current::Get(), i.e. a device_t<AssumedCurrent>.
+	 // what they get with cuda::device::current::get(), i.e. a device_t<AssumedCurrent>.
 	/**
 	 * @brief Makes this device the CUDA Runtime API's current device
 	 *
@@ -843,25 +739,53 @@ public:
 	 }
 	device_t& operator=(const device_t& other) = delete;
 
-public: 	// destructor
+
+	/**
+	 * Drops the assumption of a device being current ("recasting" it as a
+	 * not-assumed-current device).
+	 *
+	 * @note 
+	 * 1. This involve some template voodoo - making a copy of AssumedCurrent -
+	 *    to delay the evaluation here until this template is instantiated 
+	 *    rather than at class instantiation. See: 
+	 *    https://stackoverflow.com/q/46907372/1593077
+	 * 2. We only want this method to return a non-current device, yet the 
+	 *    return value corresponds to flipping the current-assumption. This
+	 *    is due to getting (clang) warnings in the case we actually want, 
+	 *    about A conversion operator into the same class. The effect is the
+	 *    same, since we only actually instantiate this for the assumed-current
+	 *    case
+	 *
+	 */
+	template <
+		bool AssumedCurrentCopy = AssumedCurrent,
+		typename = typename std::enable_if<AssumedCurrentCopy == detail::assume_device_is_current>::type>
+	operator device_t<not AssumedCurrentCopy>()
+	{
+		return device_t<detail::do_not_assume_device_is_current> { id() };
+	}
+
+
+public: 	// constructors and destructor
 
 	~device_t() = default;
+	device_t(device_t&& other) noexcept = default;
+	device_t(const device_t& other) noexcept = default;
 
 protected: // constructors
 
 	/**
-	 * @note Only @ref device::current::Get() && @ref device::Get() should be
+	 * @note Only @ref device::current::get() and @ref device::get() should be
 	 * calling this one.
 	 */
-	device_t(device::id_t device_id) : id_( { device_id })
+	device_t(device::id_t device_id) noexcept : id_( { device_id })
 	{
 	}
 
 	/**
 	 * @note Have a look at how @ref mutable_id_holder is default-constructed.
 	 */
-	device_t() :
-		id_()
+	device_t() noexcept : id_()
 	{
 		static_assert(AssumedCurrent,
 			"Attempt to instantiate a device proxy for a device not known to be "
@@ -871,6 +795,8 @@ protected: // constructors
 public: // friends
 	friend device_t<detail::assume_device_is_current> device::current::get();
 	friend device_t<detail::do_not_assume_device_is_current> device::get(device::id_t id);
+	friend class device_t<detail::assume_device_is_current>;
+		// for the conversion operator between assumed and not-assumed current
 
 protected:
 	// data members
@@ -883,15 +809,6 @@ protected:
 	 * later.
 	 */
 	const id_holder_type id_;
-
-public:
-	// faux data members (used as surrogates for internal namespaces)
-	///@cond
-	memory_t memory { id_ };
-	peer_access_t peer_access { id_ };
-	// don't worry, these two will not actually use the id_ value
-	// without making sure it's been correctly determined
-	///@endcond
 };
 
 template<bool LHSAssumedCurrent, bool RHSAssumedCurrent>
@@ -912,7 +829,7 @@ namespace current {
 /**
  * Returns a proxy for the CUDA device the runtime API has set as the current
  *
- * @note direct constructor access is blocked so that you don't Get the
+ * @note direct constructor access is blocked so that you don't get the
  * idea you're actually creating a device
  */
 inline cuda::device_t<detail::assume_device_is_current> get()
@@ -926,7 +843,7 @@ inline cuda::device_t<detail::assume_device_is_current> get()
  * Returns a proxy for the CUDA device with a given id
  *
  * @param id the ID for which to obtain the device proxy
- * @note direct constructor access is blocked so that you don't Get the
+ * @note direct constructor access is blocked so that you don't get the
  * idea you're actually creating devices
  */
 inline device_t<detail::do_not_assume_device_is_current> get(id_t device_id)
@@ -957,42 +874,6 @@ inline cuda::device_t<detail::do_not_assume_device_is_current> get(const std::st
 	auto parsed_pci_id = pci_location_t::parse(pci_id_str);
 	return get(parsed_pci_id);
 }
-
-namespace peer_to_peer {
-
-/**
- * @brief Determine whether one CUDA device can access the global memory
- * of another CUDA device.
- *
- * @param accessor device interested in making a remote access
- * @param peer device to be accessed
- * @return true iff acess is possible
- */
-template<bool FirstIsAssumedCurrent, bool SecondIsAssumedCurrent>
-inline bool can_access(const device_t<FirstIsAssumedCurrent>& accessor, const device_t<SecondIsAssumedCurrent>& peer)
-{
-	return can_access(accessor.id(), peer.id());
-}
-
-/**
- * @brief Get one of the numeric attributes for a(n ordered) pair of devices,
- * relating to their interaction
- *
- * @note This is the device-pair equivalent of @ref device_t::get_attribute()
- *
- * @param attribute identifier of the attribute of interest
- * @param source source device
- * @param destination destination device
- * @return the numeric attribute value
- */
-template<bool FirstIsAssumedCurrent, bool SecondIsAssumedCurrent>
-inline attribute_value_t get_attribute(attribute_t attribute, const device_t<FirstIsAssumedCurrent>& source,
-	const device_t<SecondIsAssumedCurrent>& destination)
-{
-	return get_attribute(attribute, source.id(), destination.id());
-}
-
-} // namespace peer_to_peer
 
 } // namespace device
 
@@ -1041,4 +922,4 @@ inline unique_ptr<T> make_unique(device_t<AssumedCurrent>& device)
 
 } // namespace cuda
 
-#endif /* CUDA_API_WRAPPERS_DEVICE_HPP_ */
+#endif // CUDA_API_WRAPPERS_DEVICE_HPP_

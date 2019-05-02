@@ -2,17 +2,17 @@
  * @file ipc.hpp
  *
  * @brief wrappers for CUDA's facilities for sharing on-device
- * memory addresses && CUDA events between host processes
+ * memory addresses and CUDA events between host processes
  *
  * CUDA addresses into device memory are not valid across different
  * host processes - somewhat, but not entirely, similarly to the
  * case of host memory addresses. Still, there is no reason why
  * different processes should not be able to interact with the same
  * on-device memory region. The same is also true for other entities,
- * such as streams && events.
+ * such as streams and events.
  *
  * <p>CUDA provides several functions to enable different processes
- * to share at least memory addresses && events, which are wrapped
+ * to share at least memory addresses and events, which are wrapped
  * here. In addition to the free-standing functions, the class
  * @ref cuda::memory::ipc::imported_t is defined, usable by receiving
  * processes as an 'adapter' to incoming handles which may be passed
@@ -23,8 +23,8 @@
 #ifndef CUDA_API_WRAPPERS_IPC_HPP_
 #define CUDA_API_WRAPPERS_IPC_HPP_
 
-#include "error.hpp"
-#include "types.h"
+#include <api/error.hpp>
+#include <api/types.hpp>
 
 #include <cuda_runtime_api.h>
 
@@ -41,7 +41,7 @@ using handle_t = cudaIpcMemHandle_t;
  * be transmitted for use in another operating system process
  *
  * @note The name contains an underscore so as not to clash
- * with the C++ reserved word export
+ * with the C++ reserved word `export`
  *
  * @param device_ptr beginning of the region of memory
  * to be shared with other processes
@@ -93,7 +93,7 @@ inline void unmap(void* ipc_mapped_ptr)
  * @brief A smart-pointer-like class for memory obtained via inter-process communication.
  *
  * This RAII wrapper class maps memory in the current process' address space on
- * construction, && unmaps it on destruction, using a CUDA IPC handle.
+ * construction, and unmaps it on destruction, using a CUDA IPC handle.
  *
  * @tparam the element type in the stretch of IPC-shared memory
  */
@@ -131,7 +131,7 @@ public: // getters
 protected: // data members
 	/**
 	 * Also used to indicate ownership of the handle; if it's nullptr,
-	 * ownership has passed to another imported_t && we don't need
+	 * ownership has passed to another imported_t and we don't need
 	 * to close the handle
 	 */
 	T*         ptr_;
@@ -184,4 +184,4 @@ inline event::id_t import(const handle_t& handle)
 } // namespace event
 } // namespace cuda
 
-#endif /* CUDA_API_WRAPPERS_IPC_HPP_ */
+#endif // CUDA_API_WRAPPERS_IPC_HPP_

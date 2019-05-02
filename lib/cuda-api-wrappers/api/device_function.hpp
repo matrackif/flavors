@@ -1,8 +1,8 @@
-/**>
+/**
  * @file device_function.hpp
  *
- * @brief Functions for querying information && making settings
- * regarding device-side functions - kernels || otherwise.
+ * @brief Functions for querying information and making settings
+ * regarding device-side functions - kernels or otherwise.
  *
  * @note This file does _not_ have device-side functions itself,
  * nor is it about the device-side part of the runtime API (i.e.
@@ -13,14 +13,17 @@
 #ifndef CUDA_API_WRAPPERS_DEVICE_FUNCTION_HPP_
 #define CUDA_API_WRAPPERS_DEVICE_FUNCTION_HPP_
 
-#include "types.h"
-#include "device_properties.hpp"
-#include "error.hpp"
-#include "current_device.hpp"
+#include <api/types.hpp>
+#include <api/device_properties.hpp>
+#include <api/error.hpp>
+#include <api/current_device.hpp>
 
 #include <cuda_runtime_api.h>
 
 namespace cuda {
+
+template<bool AssumedCurrent>
+class device_t;
 
 namespace device_function {
 
@@ -30,11 +33,11 @@ namespace device_function {
  */
 struct attributes_t : cudaFuncAttributes {
 
-	cuda::device::compute_capability_t ptx_version() const {
+	cuda::device::compute_capability_t ptx_version() const noexcept {
 		return device::compute_capability_t::from_combined_number(ptxVersion);
 	}
 
-	cuda::device::compute_capability_t binary_compilation_target_architecture() const {
+	cuda::device::compute_capability_t binary_compilation_target_architecture() const noexcept {
 		return device::compute_capability_t::from_combined_number(binaryVersion);
 	}
 };
@@ -46,9 +49,9 @@ struct attributes_t : cudaFuncAttributes {
  * @param attributes Attributes of the `__global__` kernel function
  * for which we wish to determine the allocation limit
  * @param compute_capability the GPU device's compute capability figure (e.g. 3.5
- * || 5.0), which fully determines the maximum allocation size
+ * or 5.0), which fully determines the maximum allocation size
  */
-inline shared_memory_size_t maximum_dynamic_shared_memory_per_block(
+inline memory::shared::size_t maximum_dynamic_shared_memory_per_block(
 	attributes_t attributes, device::compute_capability_t compute_capability)
 {
 	auto available_without_static_allocation = compute_capability.max_shared_memory_per_block();
@@ -63,14 +66,17 @@ inline shared_memory_size_t maximum_dynamic_shared_memory_per_block(
 } // namespace device_function
 
 /**
- * A non-owning wrapper class for CUDA `__device__` functions
+ * A non-owning wrapper class for CUDA `__global__` functions
+ *
+ * @note despite the name, a `device_function_t` is not associated with a specific
+ * device - it cant just be _executed_ on a device.
  */
 class device_function_t {
 public: // getters
-	const void* ptr() const { return ptr_; }
+	const void* ptr() const noexcept { return ptr_; }
 
 public: // type_conversions
-	operator const void*() { return ptr_; }
+	operator const void*() noexcept { return ptr_; }
 
 public: // non-mutators
 
@@ -84,11 +90,11 @@ public: // non-mutators
 
 /*
 	// The following are commented out because there are no CUDA API calls for them!
-	// You may uncomment them if you'd rather Get an exception...
+	// You may uncomment them if you'd rather get an exception...
 
 	**
 	 * Obtains a device function's preference (on the current device probably) of
-	 * either having more L1 cache || more shared memory space
+	 * either having more L1 cache or more shared memory space
 	 *
 	multiprocessor_cache_preference_t cache_preference() const
 	{
@@ -108,7 +114,7 @@ public: // non-mutators
 public: // mutators
 	/**
 	 * @brief Sets a device function's preference (on the current device probably) of
-	 * either having more L1 cache || more shared memory space
+	 * either having more L1 cache or more shared memory space
 	 */
 	void cache_preference(multiprocessor_cache_preference_t preference)
 	{
@@ -123,7 +129,7 @@ public: // mutators
 	 * more shared memory space when executing on some device
      *
 	 * @param device_id the CUDA device for execution on which the preference is set
-	 * @param preference value to set for the device function (more cache, more L1 || make the equal)
+	 * @param preference value to set for the device function (more cache, more L1 or make the equal)
 	 */
 	void cache_preference(
 		device::id_t  device_id, multiprocessor_cache_preference_t preference)
@@ -175,7 +181,7 @@ namespace device_function {
  * for use with a specific device function - which will take its use of
  * static shared memory into account.
  *
- * @param device_function The (`__global__` || `__device__`)
+ * @param device_function The (`__global__` or `__device__`)
  * function for which to calculate
  * the effective available shared memory per block
  * @param compute_capability on which kind of device the kernel function is to
@@ -187,7 +193,7 @@ namespace device_function {
  * pointer.
  *
  */
-inline shared_memory_size_t maximum_dynamic_shared_memory_per_block(
+inline memory::shared::size_t maximum_dynamic_shared_memory_per_block(
 	const device_function_t& device_function, device::compute_capability_t compute_capability)
 {
 	return device_function::maximum_dynamic_shared_memory_per_block(
@@ -208,25 +214,14 @@ inline shared_memory_size_t maximum_dynamic_shared_memory_per_block(
  * @url http://docs.nvidia.com/cuda/maxwell-tuning-guide/index.html
  */
 inline grid_dimension_t maximum_active_blocks_per_multiprocessor(
-	device::id_t              device_id,
+	device_t<detail::do_not_assume_device_is_current>
+                              device,
 	const device_function_t&  device_function,
 	grid_block_dimension_t    num_threads_per_block,
-	shared_memory_size_t      dynamic_shared_memory_per_block,
-	bool                      disable_caching_override = false)
-{
-	device::current::scoped_override_t<> set_device_for_this_context(device_id);
-	int result;
-	unsigned int flags = disable_caching_override ?
-		cudaOccupancyDisableCachingOverride : cudaOccupancyDefault;
-	auto status = cudaOccupancyMaxActiveBlocksPerMultiprocessorWithFlags(
-		&result, device_function.ptr(), num_threads_per_block,
-		dynamic_shared_memory_per_block, flags);
-	throw_if_error(status, "Failed calculating the maximum occupancy "
-		"of device function blocks per multiprocessor");
-	return result;
-}
+	memory::shared::size_t     dynamic_shared_memory_per_block,
+	bool                      disable_caching_override = false);
 
 } // namespace device_function
 } // namespace cuda
 
-#endif /* CUDA_API_WRAPPERS_DEVICE_FUNCTION_HPP_ */
+#endif // CUDA_API_WRAPPERS_DEVICE_FUNCTION_HPP_

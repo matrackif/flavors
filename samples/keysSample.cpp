@@ -1,6 +1,6 @@
 
-#include "keys.h"
-#include "tree.h"
+#include <keys.h>
+#include <tree.h>
 
 #include <vector>
 #include <iostream>
@@ -68,7 +68,7 @@ int main()
 
     //And to find something in it
 
-    //CudaArray is nothig more, than a wrapper around cudamalloc
+    //CudaArray is nothing more, than a wrapper around cudamalloc
     //Get method returns pointer to raw memory
     CudaArray<unsigned> result{newKeys.Count};
 

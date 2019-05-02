@@ -1,13 +1,13 @@
-#include "keys.h"
+#include <keys.h>
 
 #include <algorithm>
 #include <random>
 #include <iostream>
 
-#include "device_launch_parameters.h"
+#include <device_launch_parameters.h>
 #include <thrust/execution_policy.h>
 #include <thrust/reduce.h>
-#include "thrust/sequence.h"
+#include <thrust/sequence.h>
 #include <thrust/gather.h>
 #include <thrust/sort.h>
 

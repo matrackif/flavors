@@ -1,8 +1,8 @@
-#include "catch.hpp"
-#include "keys.h"
-#include "masks.h"
-#include "tree.h"
-#include "helpers.h"
+#include <catch/catch.hpp>
+#include <keys.h>
+#include <masks.h>
+#include <tree.h>
+#include <helpers.h>
 
 using namespace Flavors;
 using namespace std;
