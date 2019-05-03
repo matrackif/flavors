@@ -1,4 +1,3 @@
-project(test)
 cmake_minimum_required(VERSION 3.9 FATAL_ERROR)
 
 find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
