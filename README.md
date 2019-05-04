@@ -16,13 +16,13 @@ cd build_makefiles_rel
 cmake -G "Unix Makefiles" -D CMAKE_BUILD_TYPE=Release ..
 ```
 Or run the provided convenience script `cmake_win_gen_makefiles_rel.bat` on Windows
-
+*Note: When generating makefiles CMake looks for CUDA include files/static libs in the default location, in certain cases one may need to pass the paths to those locations manually as describes below...*
 #### Generate Visual Studio 2017 solution using CMake
 
 ```
 mkdir build_vs_2017
 cd build_vs_2017
-cmake -D CUDA_INCLUDE_DIRECTORIES=<PATH_TO_CUDA_INCLUDE_DIRECTORIES> -D CUDA_LINK_DIRECTORIES=PATH_TO_CUDA_STATIC_LIB_DIRECTORIES -G "Visual Studio 15 2017"  -A x64 ..
+cmake -D CUDA_INCLUDE_DIRECTORIES=<PATH_TO_CUDA_INCLUDE_DIRECTORIES> -D CUDA_LINK_DIRECTORIES=<PATH_TO_CUDA_STATIC_LIB_DIRECTORIES> -G "Visual Studio 15 2017"  -A x64 ..
 ```
 Or run the provided convenience script `cmake_win_gen_vs_2017.bat` on Windows. *Note: it assumes that one has CUDA 10.1 installed in the default location*.
 
