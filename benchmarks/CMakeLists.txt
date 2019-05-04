@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.9 FATAL_ERROR)
 
-find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+find_library(CUDART_LIBRARY cudart ${CUDA_LINK_DIRECTORIES})
 
 add_executable(benchmarks
 	benchmark.cpp
@@ -15,7 +15,7 @@ add_executable(benchmarks
 	words.h
 )
 
-target_include_directories(benchmarks PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} "${CMAKE_CURRENT_LIST_DIR}")
+target_include_directories(benchmarks PRIVATE ${CUDA_INCLUDE_DIRECTORIES} "${CMAKE_CURRENT_LIST_DIR}")
 
 # Link CUDA dynamic library with our native CPP executables
 # The executables depend on flavors_lib, so CMake will automatically include the same 

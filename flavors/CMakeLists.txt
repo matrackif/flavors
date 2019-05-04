@@ -22,5 +22,6 @@ target_include_directories(flavors_lib PUBLIC "${CMAKE_CURRENT_LIST_DIR}")
 # We need to explicitly state that we need all CUDA files in the 
 # particle library to be built with -dc as the member functions 
 # could be called by other libraries and executables
-set_target_properties( flavors_lib
-                       PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_target_properties(  flavors_lib PROPERTIES
+						CUDA_SEPARABLE_COMPILATION ON
+						CUDA_RESOLVE_DEVICE_SYMBOLS ON)
