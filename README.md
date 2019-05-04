@@ -47,6 +47,9 @@ make test
 ```
 *Note: tests seem to only work when they are compiled in the `Release` configuration.*
 
+### Dependencies
+The `test` project requires the Boost C++ library, the CMake script looks for Boost using the `BOOST_ROOT` environment variable. It should be set.
+
 ### Where to go next?
 
 #### Getting started
