@@ -34,10 +34,10 @@ Or run the provided convenience script `cmake_win_gen_vs_2017.bat` on Windows. *
 make (option -j4 is recommended)
 
 #To build flavors CUDA static library
-make benchmarks
+make flavors
 
 #To build benchmarks
-make flavors
+make benchmarks
 
 #To build samples
 make samples
