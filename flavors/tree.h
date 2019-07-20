@@ -36,7 +36,23 @@ namespace Flavors
 		Tree& operator=(const Tree& other) = delete;
 		Tree& operator=(Tree&& other) noexcept = default;
 
+		enum ArrayType
+		{
+			CHILDREN,
+			CHILDREN_COUNTS,
+			SCAN,
+			PRE_SCAN,
+			PERMUTATION,
+			LENGTHS,
+			MASKS_PARTS,
+			CONTAINER_SUM,
+			CONTAINER_ITEMS,
+			CONTAINER_STARTS,
+			CONTAINER_LENGTHS
+		};
 		size_t MemoryFootprint();
+		size_t GetSpecificMemoryFootPrint(const ArrayType & arrType);
+		
 
 	//TODO: Revise public interface
 	// private:

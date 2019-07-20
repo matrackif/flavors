@@ -717,4 +717,70 @@ namespace Flavors
 
 	}
 
+	size_t Tree::GetSpecificMemoryFootPrint(const Tree::ArrayType & arrType)
+	{
+		// TODO use enum instead of strings
+		size_t ret = 0;
+		switch (arrType)
+		{
+			case CHILDREN:
+			{
+				ret = Children.MemoryFootprint();
+				break;
+			}
+			case CHILDREN_COUNTS:
+			{
+				ret = ChildrenCounts.MemoryFootprint();
+				break;
+			}
+			case SCAN:
+			{
+				ret = scan.MemoryFootprint();
+				break;
+			}
+			case PRE_SCAN:
+			{
+				ret = preScan.MemoryFootprint();
+				break;
+			}
+			case PERMUTATION:
+			{
+				ret = permutation.MemoryFootprint();
+				break;
+			}
+			case LENGTHS:
+			{
+				ret = lengths.MemoryFootprint();
+				break;
+			}
+			case MASKS_PARTS:
+			{
+				ret = masksParts.MemoryFootprint();
+				break;
+			}
+			case CONTAINER_SUM:
+			{
+				ret = containers.MemoryFootprint();
+				break;
+			}
+			case CONTAINER_ITEMS:
+			{
+				ret = containers.Items.MemoryFootprint();
+				break;
+			}
+			case CONTAINER_STARTS:
+			{
+				ret = containers.Starts.MemoryFootprint();
+				break;
+			}
+			case CONTAINER_LENGTHS:
+			{
+				ret = containers.Lengths.MemoryFootprint();
+				break;
+			}
+		}
+			
+		return ret;
+	}
+
 }

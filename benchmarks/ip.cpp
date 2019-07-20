@@ -104,6 +104,19 @@ namespace FlavorsBenchmarks
 				measured.Add("TreeLevels", tree);
 				measured.Add("Depth", tree.Depth());
 
+				// Get memory footprint of specific arrays
+				measured.Add("ChildrenMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::CHILDREN));
+				measured.Add("ChildrenCountsMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::CHILDREN_COUNTS));
+				measured.Add("ScanMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::SCAN));
+				measured.Add("PreScanMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::PRE_SCAN));
+				measured.Add("PermuationMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::PERMUTATION));
+				measured.Add("LengthsMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::LENGTHS));
+				measured.Add("MasksPartsMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::MASKS_PARTS));
+				measured.Add("ContainerSumMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::CONTAINER_SUM));
+				measured.Add("ContainerItemsMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::CONTAINER_ITEMS));
+				measured.Add("ContainerStartsMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::CONTAINER_STARTS));
+				measured.Add("ContainerLengthsMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::CONTAINER_LENGTHS));
+
 				timer.Start();
 				tree.Find(reshapedIpSet, result.Get());
 				measured.Add("Find", timer.Stop());
