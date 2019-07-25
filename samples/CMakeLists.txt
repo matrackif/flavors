@@ -4,8 +4,8 @@ cmake_minimum_required(VERSION 3.9 FATAL_ERROR)
 add_executable(keysSample keysSample.cpp)
 add_executable(longKeysSample longKeysSample.cpp)
 
-target_include_directories(keysSample PRIVATE ${CUDA_INCLUDE_DIRECTORIES})
-target_include_directories(longKeysSample PRIVATE ${CUDA_INCLUDE_DIRECTORIES})
+target_include_directories(keysSample PRIVATE ${CUDA_INCLUDE_DIRS})
+target_include_directories(longKeysSample PRIVATE ${CUDA_INCLUDE_DIRS})
 
 # Link CUDA dynamic library with our native CPP executables
 # The executables depend on flavors_lib, so CMake will automatically include the same 

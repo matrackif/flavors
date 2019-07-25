@@ -13,7 +13,7 @@ add_executable(benchmarks
 	words.h
 )
 
-target_include_directories(benchmarks PRIVATE ${CUDA_INCLUDE_DIRECTORIES} "${CMAKE_CURRENT_LIST_DIR}")
+target_include_directories(benchmarks PRIVATE ${CUDA_INCLUDE_DIRS} "${CMAKE_CURRENT_LIST_DIR}")
 
 # Link CUDA dynamic library with our native CPP executables
 # The executables depend on flavors_lib, so CMake will automatically include the same 
