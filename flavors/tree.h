@@ -48,7 +48,8 @@ namespace Flavors
 			CONTAINER_SUM,
 			CONTAINER_ITEMS,
 			CONTAINER_STARTS,
-			CONTAINER_LENGTHS
+			CONTAINER_LENGTHS,
+			SUM_UNIQUE_SIZES_ONLY // Sum all of the above that are unique for different configurations only
 		};
 		size_t MemoryFootprint();
 		size_t GetSpecificMemoryFootPrint(const ArrayType & arrType);

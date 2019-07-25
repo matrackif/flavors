@@ -105,6 +105,7 @@ namespace FlavorsBenchmarks
 				measured.Add("Depth", tree.Depth());
 
 				// Get memory footprint of specific arrays
+				measured.Add("TreeMemoryUniqueOnly", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::SUM_UNIQUE_SIZES_ONLY));
 				measured.Add("ChildrenMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::CHILDREN));
 				measured.Add("ChildrenCountsMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::CHILDREN_COUNTS));
 				measured.Add("ScanMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::SCAN));

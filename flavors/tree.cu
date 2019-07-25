@@ -778,6 +778,16 @@ namespace Flavors
 				ret = containers.Lengths.MemoryFootprint();
 				break;
 			}
+			case SUM_UNIQUE_SIZES_ONLY:
+			{
+				ret = Children.MemoryFootprint()
+					+ ChildrenCounts.MemoryFootprint()
+					+ scan.MemoryFootprint()
+					+ preScan.MemoryFootprint()
+					+ containers.MemoryFootprint();
+				break;
+			}
+
 		}
 			
 		return ret;
