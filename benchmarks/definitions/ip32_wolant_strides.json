@@ -1,0 +1,22 @@
+{
+    "benchmark": "ip",
+    "resultFile": "ip32_wolant_results.csv",
+    "dictionaries": "./../../data/ip/",
+    "deviceId": 0,
+	"comment": "Configs found in document of A. Wolant and K. Kaczmarski",
+    "configs": [
+		[16, 16],
+		[8, 8, 8, 8],
+		[8, 4, 4, 4, 4, 8],
+		[8, 8, 2, 2, 2, 2, 8],
+		[16, 8, 8],
+		[8, 8, 4, 4, 8],
+		[8, 8, 4, 2, 2, 8],
+		[8, 4, 4, 2, 2, 2, 2, 8],
+		[8, 8, 16],
+		[4, 4, 4, 4, 8, 8],
+		[4, 5, 4, 5, 6, 4, 2, 2],
+		[8, 2, 2, 2, 2, 2, 2, 2, 2, 8]
+    ]
+  }
+  

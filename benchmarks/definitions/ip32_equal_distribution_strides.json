@@ -1,0 +1,14 @@
+{
+    "benchmark": "ip",
+    "resultFile": "ip32_equal_dist_results.csv",
+    "dictionaries": "./../../data/ip/",
+	"comment": "Configs generated my algorithm that seeks to distribute equal amount of prefixes to each level",
+    "deviceId": 0,
+    "configs": [
+		[22, 1, 9],
+		[21, 2, 1, 8],
+		[20, 2, 1, 1, 8],
+		[20, 1, 1, 1, 1, 8]
+    ]
+  }
+  

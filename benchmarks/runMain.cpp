@@ -21,6 +21,7 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
+
 	std::ifstream file(argv[1]);
 
 	if (!file)
@@ -97,4 +98,6 @@ int main(int argc, char** argv)
 		std::cerr << "Unknown benchmark type." << std::endl;
 		return EXIT_FAILURE;
 	}
+	std::cout << "Program ended normally" << std::endl;
+	return 0;
 }
