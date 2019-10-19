@@ -1,6 +1,8 @@
 #pragma once
 
 #include <benchmark.h>
+#define _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING
+#include <experimental/filesystem>
 
 namespace FlavorsBenchmarks
 {

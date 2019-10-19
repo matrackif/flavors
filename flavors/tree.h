@@ -53,7 +53,7 @@ namespace Flavors
 		};
 		size_t MemoryFootprint();
 		size_t GetSpecificMemoryFootPrint(const ArrayType & arrType);
-		
+		std::string getAverageNodeSizePerLevel();
 
 	//TODO: Revise public interface
 	// private:

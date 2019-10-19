@@ -14,7 +14,7 @@ add_executable(benchmarks
 )
 
 target_include_directories(benchmarks PRIVATE ${CUDA_INCLUDE_DIRS} "${CMAKE_CURRENT_LIST_DIR}")
-
+target_compile_features(benchmarks PUBLIC cxx_std_14)
 # Link CUDA dynamic library with our native CPP executables
 # The executables depend on flavors_lib, so CMake will automatically include the same 
 # header files that are used to compile flavors_lib, due to target_include_directories() called with PUBLIC

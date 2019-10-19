@@ -793,4 +793,21 @@ namespace Flavors
 		return ret;
 	}
 
+	std::string Tree::getAverageNodeSizePerLevel()
+	{
+		// This method only calls host code
+		std::ostringstream oss;
+		std::vector<std::vector<unsigned>> containerLengths = containers.Lengths.ToHost();
+		for (unsigned i = 0; i < containerLengths.size(); ++i)
+		{
+			double sum = 0;
+			for (auto & nodeLength : containerLengths[i])
+			{
+				sum += nodeLength;
+			}
+			oss << sum / containerLengths[i].size() << ", ";
+		}
+		return oss.str();
+	}
+
 }
