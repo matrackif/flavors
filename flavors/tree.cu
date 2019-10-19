@@ -798,14 +798,9 @@ namespace Flavors
 		// This method only calls host code
 		std::ostringstream oss;
 		std::vector<std::vector<unsigned>> containerLengths = containers.Lengths.ToHost();
-		for (unsigned i = 0; i < containerLengths.size(); ++i)
+		for (auto & nodeLengths : containerLengths)
 		{
-			double sum = 0;
-			for (auto & nodeLength : containerLengths[i])
-			{
-				sum += nodeLength;
-			}
-			oss << sum / containerLengths[i].size() << ", ";
+			oss << std::accumulate(nodeLengths.begin(), nodeLengths.end(), 0.0) / nodeLengths.size() << ", ";
 		}
 		return oss.str();
 	}

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <numeric>
 #include <keys.h>
 #include <masks.h>
 #include <containers.h>
