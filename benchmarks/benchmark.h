@@ -97,18 +97,18 @@ namespace FlavorsBenchmarks
 	public:
 		template<
 			typename T, 
-			typename = typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
+			typename = typename std::enable_if_t<is_streamable<std::ostringstream, T>::value, T>>
 		inline void Add(std::string && label, T value)
 		{
+			std::ostringstream oss;
 			if (values.count(label) == 0)
 				labels.push_back(label);
-
-			values[label] = std::to_string(value);
+			oss << value;
+			values[label] = oss.str();
 		}
 
 		void Add(std::string&& label, Flavors::Configuration& config);
 		void Add(std::string&& label, Flavors::Tree& tree);
-		void Add(std::string&& label, std::string& value);
 		void AddHitCount(Flavors::CudaArray<unsigned>& result);
 
 		void AppendToFile(const std::string& path);

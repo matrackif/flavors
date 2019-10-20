@@ -9,6 +9,7 @@ add_executable(tests
 	testLoad.cpp
 	testMasks.cpp
 	testTree.cpp
+	testUtils.cpp
 )
 
 target_include_directories(tests PRIVATE ${CUDA_INCLUDE_DIRS} "${CMAKE_CURRENT_LIST_DIR}")

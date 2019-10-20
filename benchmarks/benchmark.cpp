@@ -91,14 +91,6 @@ namespace FlavorsBenchmarks
 		values[label] = ss.str();
 	}
 
-	void Measured::Add(std::string && label, std::string& value)
-	{
-		if (values.count(label) == 0)
-			labels.push_back(label);
-
-		values[label] = value;
-	}
-
 	void Measured::AddHitCount(Flavors::CudaArray<unsigned>& result)
 	{
 		auto h_result = result.ToHost();

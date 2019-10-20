@@ -117,7 +117,12 @@ namespace FlavorsBenchmarks
 				measured.Add("ContainerItemsMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::CONTAINER_ITEMS));
 				measured.Add("ContainerStartsMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::CONTAINER_STARTS));
 				measured.Add("ContainerLengthsMemory", tree.GetSpecificMemoryFootPrint(Tree::ArrayType::CONTAINER_LENGTHS));
-				measured.Add("AverageNodeLengths", tree.getAverageNodeSizePerLevel());
+				measured.Add("AverageNodeSizesLevels", tree.getAverageNodeSizePerLevel());
+				auto avgNodeSize = tree.getAverageNodeSize();
+				auto treeHeight = tree.Depth();
+				measured.Add("AverageNodeSize", avgNodeSize);
+				measured.Add("TreeHeight", treeHeight);
+				measured.Add("NodeSizeToHeightRatio", avgNodeSize / treeHeight);
 				timer.Start();
 				tree.Find(reshapedIpSet, result.Get());
 				measured.Add("Find", timer.Stop());
