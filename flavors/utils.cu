@@ -84,7 +84,7 @@ namespace Flavors
 	{
 		size_t memory = levels.MemoryFootprint();
 
-		for(auto level : h_levels)
+		for(auto & level : h_levels)
 			memory += level.MemoryFootprint();
 
 		return memory;
