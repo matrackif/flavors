@@ -43,12 +43,13 @@ namespace FlavorsBenchmarks
         return mask;
     }
 
-    Flavors::Masks IpBenchmark::loadIpSet(std::string& path)
+    Flavors::Masks IpBenchmark::loadIpSetAsMasks(std::string& path, unsigned count)
     {
         std::vector<std::string> lines;
 		std::ifstream file;
 		file.open(path);
-
+		bool isReading = true;
+		unsigned numLinesRead = 0;
 		std::string line;
 
         std::vector<std::string> tmpMasks;
@@ -56,8 +57,12 @@ namespace FlavorsBenchmarks
 
 		if (file.good())
 		{
-			while (file >> line)
-                parseLine(line, tmpMasks, lenghts);
+			while ((file >> line) && isReading)
+			{
+				isReading = count > 0 ? (++numLinesRead < count) : true;
+				parseLine(line, tmpMasks, lenghts);
+			}
+               
 		}
 
         std::vector<unsigned> reorderedMasks(tmpMasks.size());
@@ -71,13 +76,41 @@ namespace FlavorsBenchmarks
         return masks;
     }
 
+	Flavors::Keys IpBenchmark::loadIpSetAsKeys(std::string& path, unsigned count)
+	{
+		std::vector<std::string> lines;
+		std::ifstream file;
+		file.open(path);
+		bool isReading = true;
+		unsigned numLinesRead = 0;
+		std::string line;
+
+		std::vector<std::string> tmpMasks;
+		std::vector<unsigned> lenghts;
+
+		if (file.good())
+		{
+			while ((file >> line) && isReading)
+			{
+				isReading = count > 0 ? (++numLinesRead < count) : true;
+				parseLine(line, tmpMasks, lenghts);
+			}
+
+		}
+		std::vector<unsigned> reorderedMasks(tmpMasks.size());
+		std::transform(tmpMasks.begin(), tmpMasks.end(), reorderedMasks.begin(), parseTmpMask);
+		Flavors::Keys keys(Flavors::Configuration::Default32, tmpMasks.size());
+		cuda::memory::copy(keys.Store.Get(), reorderedMasks.data(), keys.Count * sizeof(unsigned));
+		return keys;
+	}
+
     void IpBenchmark::runForDictionary(std::string& path)
 	{
 		std::cout << "Processing ip set: " << path << std::endl;
 		measured.Add("Dictionary", path);
 
 		timer.Start();
-		auto ipSet = loadIpSet(path);
+		auto ipSet = loadIpSetAsMasks(path);
 		measured.Add("Load", timer.Stop());
 		measured.Add("Count", ipSet.Count);
 
@@ -86,6 +119,10 @@ namespace FlavorsBenchmarks
 		measured.Add("Sort", timer.Stop());
 
 		CudaArray<unsigned> result{ ipSet.Count };
+
+		constexpr unsigned randomCount = 100000;
+		Keys randomIpSet = loadIpSetAsKeys(path, randomCount);
+		randomIpSet.FillRandom2(0);
 
 		for(auto& config : configs)
 		{
@@ -101,26 +138,26 @@ namespace FlavorsBenchmarks
 			timer.Start();
 			Tree tree{ reshapedIpSet };
 			measured.Add("Build", timer.Stop());
-			{
-				int randomCount = 100000;
-				Keys randomIpSet(config, randomCount);
-				randomIpSet.FillRandom(0);
-				measured.Add("RandomCount", randomCount);
+			
+			measured.Add("RandomCount", randomCount);
 
-				timer.Start();
-				tree.Match(randomIpSet, result.Get());
-				measured.Add("RandomMatch", timer.Stop());
+			// TODO call ReshapeKeys or call loadIpSetAsKeys() with config argument to be safe
+			// ReshapeKeys() should not modify the actual keys, just how they are stored in the array
+			randomIpSet = randomIpSet.ReshapeKeys(config);
+			timer.Start();
+			tree.Match(randomIpSet, result.Get());
+			measured.Add("RandomMatch", timer.Stop());
 
-				timer.Start();
-				randomIpSet.Sort();
-				measured.Add("RandomSort", timer.Stop());
+			timer.Start();
+			randomIpSet.Sort();
+			measured.Add("RandomSort", timer.Stop());
 
-				result.Clear();
-				timer.Start();
-				tree.Match(randomIpSet, result.Get());
-				measured.Add("RandomSortedMatch", timer.Stop());
-				measured.AddHitCount(result);
-			}
+			result.Clear();
+			timer.Start();
+			tree.Match(randomIpSet, result.Get());
+			measured.Add("RandomSortedMatch", timer.Stop());
+			measured.AddHitCount(result);
+					
 			measured.Add("TreeMemory", tree.MemoryFootprint());
 			measured.Add("TreeLevels", tree);
 			measured.Add("Depth", tree.Depth());

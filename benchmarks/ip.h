@@ -18,7 +18,7 @@ namespace FlavorsBenchmarks
         void runForDictionary(std::string& path) override;
 
     private:
-        Flavors::Masks loadIpSet(std::string& path);
-
+        Flavors::Masks loadIpSetAsMasks(std::string& path, unsigned count = 0);
+		Flavors::Keys loadIpSetAsKeys(std::string& path, unsigned count = 0);
     };
 }

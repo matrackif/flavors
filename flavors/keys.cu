@@ -46,6 +46,30 @@ namespace Flavors
 		}
 	}
 
+	void Keys::FillRandom2(int seed)
+	{
+		std::mt19937 mt(seed);
+		std::bernoulli_distribution bd(0.5);
+		std::vector<unsigned>  currentValues = ToHost()[0];
+
+		unsigned mask = 0;
+		assert(Count == currentValues.size());
+		for (int i = 0; i < currentValues.size(); ++i)
+		{
+			for (int j = 0; j < 32; ++j)
+			{
+				if (bd(mt))
+				{
+					// Toggle bit
+					currentValues[i] ^= (1U << j);
+				}
+			}
+		}
+
+		cuda::memory::copy(Store.Get(), currentValues.data(), Count * sizeof(unsigned));
+	}
+
+
 	void Keys::FillFromVector(std::vector<unsigned> source)
 	{
 		for(int level = 0; level < Depth(); ++level)
