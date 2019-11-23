@@ -1,0 +1,14 @@
+{
+    "benchmark": "ip",
+    "resultFile": "prefixes_from_thesis.csv",
+    "dictionaries": "./../../data/ip/",
+	"comment": "Test on example prefixes from thesis",
+    "deviceId": 0,
+    "configs": [
+		[2, 2, 1, 2],
+		[1, 1, 1, 1, 1, 1, 1],
+		[1, 6],
+		[1, 1, 3, 2]
+    ]
+  }
+  

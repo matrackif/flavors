@@ -106,25 +106,32 @@ namespace FlavorsBenchmarks
 
     void IpBenchmark::runForDictionary(std::string& path)
 	{
-		std::cout << "Processing ip set: " << path << std::endl;
-		measured.Add("Dictionary", path);
+		//std::cout << "Processing ip set: " << path << std::endl;
+		//measured.Add("Dictionary", path);
 
+		//timer.Start();
+		//std::vector<unsigned> data = { 0u, 3221225472u, 3221225472u, 3758096384u, 3221225472u, 4160749568u, 3556769792u };
+		std::vector<unsigned> data{ 0, 96, 96, 112, 96, 124, 106 };
+		std::vector<unsigned> lengths = { 1, 2, 3, 4, 5, 5, 7};
+		Configuration c({ 7 });
+		Flavors::Masks keys(c, data.size());
+		keys.FillFromVector(data, lengths);
+		std::cout << keys << std::endl;
+		//keys.FillFromVector(data, lengths);
+		//measured.Add("Load", timer.Stop());
+		measured.Add("Count", keys.Count);
+		
 		timer.Start();
-		auto ipSet = loadIpSetAsMasks(path);
-		measured.Add("Load", timer.Stop());
-		measured.Add("Count", ipSet.Count);
-
-		timer.Start();
-		ipSet.Sort();
+		keys.Sort();
 		measured.Add("Sort", timer.Stop());
 
-		CudaArray<unsigned> result{ ipSet.Count };
+		CudaArray<unsigned> result{ keys.Count };
 
-		constexpr unsigned randomCount = 100000;
-		constexpr int seed = 123;
-		Keys randomIpSet = loadIpSetAsKeys(path, randomCount);
-		randomIpSet.FillRandom2(seed);
-		measured.Add("Seed", seed);
+		//constexpr unsigned randomCount = 100000;
+		//constexpr int seed = 123;
+		//Keys randomIpSet = loadIpSetAsKeys(path, randomCount);
+		//randomIpSet.FillRandom2(seed);
+		//measured.Add("Seed", seed);
 		for(auto& config : configs)
 		{
 			std::cout << "Testing config: " << config << std::endl;
@@ -133,30 +140,32 @@ namespace FlavorsBenchmarks
 			measured.Add("Config", config);
 
 			timer.Start();
-			auto reshapedIpSet = ipSet.ReshapeMasks(config);
+			auto reshapedIpSet = keys.ReshapeMasks(config);
 			measured.Add("Reshape", timer.Stop());
-
+			std::cout << "Keys: \n" << reshapedIpSet << std::endl;
 			timer.Start();
 			Tree tree{ reshapedIpSet };
+			auto items = tree.containers.Items.ToHost();
+			auto children = tree.Children.ToHost();
 			measured.Add("Build", timer.Stop());
 			
-			measured.Add("RandomCount", randomCount);
+			//measured.Add("RandomCount", randomCount);
 
 			// TODO call ReshapeKeys or call loadIpSetAsKeys() with config argument to be safe
 			// ReshapeKeys() should not modify the actual keys, just how they are stored in the array
-			randomIpSet = randomIpSet.ReshapeKeys(config);
-			timer.Start();
-			tree.Match(randomIpSet, result.Get());
-			measured.Add("RandomMatch", timer.Stop());
+			//randomIpSet = randomIpSet.ReshapeKeys(config);
+			//timer.Start();
+			//tree.Match(randomIpSet, result.Get());
+			//measured.Add("RandomMatch", timer.Stop());
 
-			timer.Start();
-			randomIpSet.Sort();
-			measured.Add("RandomSort", timer.Stop());
+			//timer.Start();
+			//randomIpSet.Sort();
+			//measured.Add("RandomSort", timer.Stop());
 
 			result.Clear();
-			timer.Start();
-			tree.Match(randomIpSet, result.Get());
-			measured.Add("RandomSortedMatch", timer.Stop());
+			//timer.Start();
+			//tree.Match(randomIpSet, result.Get());
+			//measured.Add("RandomSortedMatch", timer.Stop());
 			measured.AddHitCount(result);
 					
 			measured.Add("TreeMemory", tree.MemoryFootprint());
@@ -191,17 +200,18 @@ namespace FlavorsBenchmarks
 			}
 			oss << "}";
 			measured.Add("ItemsPerLevel", oss.str());
-			measured.Add("MaxItemsPerLevel", *std::max_element(tree.containers.ItemsPerLevel.cbegin(), tree.containers.ItemsPerLevel.cend()));
+			//measured.Add("MaxItemsPerLevel", *std::max_element(tree.containers.ItemsPerLevel.cbegin(), tree.containers.ItemsPerLevel.cend()));
 			// TODO find fails at random times for configs with large strides, probably too much memory allocated
-			//timer.Start();
-			//tree.Find(reshapedIpSet, result.Get());
-			measured.Add("Find", 0);
+			timer.Start();
+			tree.Find(reshapedIpSet, result.Get());
+			measured.Add("Find", timer.Stop());
 
 			timer.Start();
 			tree.Match(reshapedIpSet, result.Get());
 			measured.Add("Match", timer.Stop());
 			measured.AppendToFile(resultFile);
         }
+		
 	}
 
 }
