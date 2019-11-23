@@ -121,9 +121,10 @@ namespace FlavorsBenchmarks
 		CudaArray<unsigned> result{ ipSet.Count };
 
 		constexpr unsigned randomCount = 100000;
+		constexpr int seed = 123;
 		Keys randomIpSet = loadIpSetAsKeys(path, randomCount);
-		randomIpSet.FillRandom2(0);
-
+		randomIpSet.FillRandom2(seed);
+		measured.Add("Seed", seed);
 		for(auto& config : configs)
 		{
 			std::cout << "Testing config: " << config << std::endl;
