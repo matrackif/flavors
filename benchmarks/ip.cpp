@@ -147,6 +147,8 @@ namespace FlavorsBenchmarks
 			Tree tree{ reshapedIpSet };
 			auto items = tree.containers.Items.ToHost();
 			auto children = tree.Children.ToHost();
+			auto containerStarts = tree.containers.Starts.ToHost();
+			auto containerLengths = tree.containers.Lengths.ToHost();
 			measured.Add("Build", timer.Stop());
 			
 			//measured.Add("RandomCount", randomCount);
