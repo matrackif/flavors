@@ -132,9 +132,11 @@ namespace FlavorsBenchmarks
 		//Keys randomIpSet = loadIpSetAsKeys(path, randomCount);
 		//randomIpSet.FillRandom2(seed);
 		//measured.Add("Seed", seed);
-		for(auto& config : configs)
+		const unsigned numConfigs = configs.size();
+		for (unsigned long i = 0; i < numConfigs; ++i)
 		{
-			std::cout << "Testing config: " << config << std::endl;
+			auto& config = configs[i];
+			std::cout << "Testing config " << i + 1 << "/" << numConfigs << " (" << std::setprecision(4) << std::fixed << 100.0 * (i + 1) / numConfigs << "%) : " << config << std::endl;
 			
 			// call some_function which may throw something
 			measured.Add("Config", config);
