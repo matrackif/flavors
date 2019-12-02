@@ -55,8 +55,9 @@ namespace Flavors
 		size_t MemoryFootprint();
 		size_t GetSpecificMemoryFootPrint(const ArrayType & arrType);
 		double getAverageNodeSize();
+		unsigned getMaxNodeSize();
 		std::string getAverageNodeSizePerLevel();
-
+		std::string getMaxNodeSizePerLevel();
 	//TODO: Revise public interface
 	// private:
 		void levelsSizesToHost(Cuda2DArray& indexes);

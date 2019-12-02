@@ -7,6 +7,7 @@
 #include <thrust/sort.h>
 #include <thrust/gather.h>
 #include <device_launch_parameters.h>
+#include <algorithm>
 
 namespace Flavors
 {
@@ -809,6 +810,17 @@ namespace Flavors
 		return count > 0 ? (sum / count) : 0;
 	}
 
+	unsigned Tree::getMaxNodeSize()
+	{
+		std::vector<std::vector<unsigned>> containerLengths = containers.Lengths.ToHost();
+		std::vector<unsigned> maxNodesPerLevel;
+		for (auto& nodeLengths : containerLengths)
+		{
+			maxNodesPerLevel.push_back(nodeLengths.size() > 0 ? *std::max_element(nodeLengths.begin(), nodeLengths.end()) : 0);
+		}
+		return maxNodesPerLevel.size() > 0 ? *std::max_element(maxNodesPerLevel.begin(), maxNodesPerLevel.end()) : 0;
+	}
+
 	std::string Tree::getAverageNodeSizePerLevel()
 	{
 		// This method only calls host code
@@ -817,6 +829,18 @@ namespace Flavors
 		for (auto & nodeLengths : containerLengths)
 		{
 			oss << std::accumulate(nodeLengths.begin(), nodeLengths.end(), 0.0) / nodeLengths.size() << ", ";
+		}
+		return oss.str();
+	}
+
+	std::string Tree::getMaxNodeSizePerLevel()
+	{
+		// This method only calls host code
+		std::ostringstream oss;
+		std::vector<std::vector<unsigned>> containerLengths = containers.Lengths.ToHost();
+		for (auto& nodeLengths : containerLengths)
+		{
+			oss << (nodeLengths.size() > 0 ? *std::max_element(nodeLengths.begin(), nodeLengths.end()) : 0) << ", ";
 		}
 		return oss.str();
 	}
